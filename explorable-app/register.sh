@@ -75,8 +75,13 @@ set -euo pipefail
 
 # Load local registration settings when present. Values in this file override
 # inherited environment variables and are then used by the defaults below.
+#
+# One file per Kiwi instance: point ENV_FILE at the one you mean. Without this
+# the hardcoded .env wins over anything passed on the command line — including
+# KIWI — and a run aimed at a deployment silently retargets localhost.
+#     ENV_FILE=./.env.playground ./register.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/.env}"
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
