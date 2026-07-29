@@ -1,2 +1,5 @@
-# Local registration credentials and session data.
+# Local registration credentials and session data. The repo is public — every
+# .env variant stays out, and only the committed template is excepted.
 explorable-app/.env
+explorable-app/.env.*
+!explorable-app/.env.example
