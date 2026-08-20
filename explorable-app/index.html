@@ -16,43 +16,27 @@
     detail, generated source — goes to the DevTools console instead
     (window.__explorable exposes the debug switches; see PART 5).
 
-    HOW IT USES KIWI'S TWO AI SURFACES (measured from the Kiwi source, see
-    ../README.md "What Kiwi actually allows"):
+    HOW IT CALLS THE MODEL: directly. Every AI call is a plain fetch to an
+    OpenAI-compatible endpoint (LiteLLM — AI_BASE_URL / AI_MODEL in PART 6).
+    The Kiwi bridge is still used for EMBEDDING (kiwi:ready / kiwi:context /
+    kiwi:updateContext), but no AI traffic rides it any more, so the old
+    two-surface split (capped askAI vs uncapped contextualChat) is gone:
+    there is ONE route, uncapped, with this app's own system prompt.
 
-      kiwi:askAI          -> POST /student/chat/v2 -> the STUDENT TUTOR AGENT
-                             agent-loop.service.ts caps every iteration at
-                             maxTokensPerIteration: 1500 on a gpt-5.x REASONING
-                             model, so reasoning eats part of that budget. The
-                             system prompt is Kiwi's tutor persona ("guide
-                             students rather than giving direct answers") and it
-                             carries RAG / code-interpreter / site-control tools.
-                             Great for tutoring. Bad at writing a whole page.
+    The work is still three calls, because the split is a latency feature:
 
-      kiwi:apiRequest      -> POST /api/kiwi-apps/:slug/contextual-chat
-        contextualChat        -> LlmService.createChat directly. No agent, no
-                             tools, no tutor persona: the system prompt is THIS
-                             APP's registered prompt. `prompt.maxTokens ?? undefined`
-                             means a prompt registered WITHOUT maxTokens sends no
-                             max_completion_tokens at all — uncapped. And
-                             `outputSchema` compiles to a strict json_schema, so
-                             the reply is GUARANTEED to be a conforming JSON
-                             instance. This is the good path.
+      · page  — the complete interactive HTML document, streamed, with the
+                build contract (PAGE_RULES) as the user message
+      · head  — title + concept prose. Depends only on the typed concept, so
+                it is fired WITH the page call and usually paints first
+      · howto — names the real controls, so it fires after the page lands
 
-    So: contextualChat when the app has the prompt + scopes, otherwise askAI —
-    and on askAI the work is split into small calls (one blueprint, then logic,
-    view and text in PARALLEL), because several 1500-token budgets beat one.
+    The model writes the COMPLETE page — the app injects exactly one reporting
+    script (finalizeHtml, Part 4) and mounts the rest as-is in a sandboxed
+    iframe. A page that throws is regenerated with the error as feedback,
+    never patched.
 
-    The prose around the panel (title, concept explanation, how-to) comes from a
-    SEPARATE writer call on either route: the build call spends every token on
-    the interactive slots and emits no text at all.
-
-    Either way the model never writes HTML, CSS, event wiring, timers or a reset
-    button: a runtime harness ships with this app and the model fills three
-    slots — the initial state, the actions, and the render function. Plumbing
-    can't be generated wrong if it isn't generated.
-
-    Opened standalone, the SDK's Simulator answers both surfaces locally so the
-    whole flow still works offline.
+    Opened standalone the flow still works: the direct API needs no Kiwi host.
 
     See ../README.md and ../AGENTS.md.
   -->
@@ -163,7 +147,21 @@
       border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
       background:#fff; box-shadow:var(--shadow);
     }
+    /* Premade pages (csvistool, Galles) are laid out for a ~1000px canvas, so
+       the stage breaks out of the 780px text column to full-bleed width while
+       the prose stays narrow. width uses 100% (not 100vw) as its floor so a
+       narrow viewport never overflows; the negative-margin split keeps it
+       centred because .shell itself is centred. */
+    .stage.wide {
+      --sw:max(100%, min(1200px, 100vw - 48px));   /* never narrower than the column */
+      width:var(--sw);
+      margin-left:calc((100% - var(--sw)) / 2);
+    }
     .stage iframe { display:block; width:100%; height:520px; border:0; background:#fff; }
+    .stage .credit {
+      font-size:11.5px; color:var(--faint); text-align:right;
+      padding:5px 10px 6px; border-top:1px solid var(--line2); background:#fbfcfe;
+    }
 
     /* Replay acts on the stage, so it lives ON the stage — corner-pinned rather
        than parked in the header, where it sat at the mercy of however many lines
@@ -281,6 +279,7 @@
           </button>
           <div class="sk sk-stage" id="sk_stage"><span></span></div>
           <iframe id="frame" sandbox="allow-scripts" title="Interactive explanation"></iframe>
+          <div class="credit" id="credit" style="display:none"></div>
         </div>
         <div class="trybox" id="howtobox" style="display:none">
           <h5>How to explore</h5>
@@ -297,225 +296,11 @@
       </section>
 
       <div class="foot" id="foot"><span class="dot"></span><span id="foot_txt">Connecting…</span><span
-        class="footsim" id="foot_sim" title="No Kiwi host detected — answers are built-in samples rather than generated.">Demo mode</span></div>
+        class="footsim" id="foot_sim" title="No Kiwi host detected — the app runs standalone; AI calls still go directly to the model API.">Standalone</span></div>
     </div>
 
     <script src="./kiwi-app-sdk/kiwi-app-sdk.js"></script>
     <script>
-      /* =====================================================================
-         PART 1 — the demo runtime (Simulator fixtures ONLY)
-         =====================================================================
-         The LIVE pipeline no longer uses any of this: the model writes the
-         complete page itself (Part 2's contract) and Part 4 injects only a
-         reporting script into it.
-
-         This runtime remains for one reason: the offline Simulator's demo
-         explanations (Part 9) are stored as slots — state / actions / render —
-         and assemble() turns them into full pages so standalone mode still
-         shows something clickable. Nothing here ships inside a generated page.
-      */
-
-      const RUNTIME_CSS = `
-:root{--bg:#fff;--txt:#1b2230;--muted:#5c6675;--faint:#8a94a3;--line:#e4e8ef;--line2:#eef1f6;
---acc:#1f9d76;--acc-d:#178060;--acc-bg:#e9f7f1;--blue:#2f6bff;--blue-bg:#eaf0ff;
---amber:#e0a33a;--amber-bg:#fff5e4;--red:#d04545;--red-bg:#fdecec;--r:10px}
-*{box-sizing:border-box}
-body{margin:0;padding:20px;background:var(--bg);color:var(--txt);
-  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-.panel{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:13px}
-.title{font-size:19px;font-weight:700;margin:0}
-.sub{color:var(--muted);font-size:13px;margin:0}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.col{display:flex;flex-direction:column;gap:8px}
-.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:11px 13px;
-  border:1px solid var(--line);border-radius:var(--r);background:#fbfcfe}
-button{background:#f3f5f8;color:var(--txt);border:1px solid var(--line);border-radius:8px;
-  padding:7px 13px;cursor:pointer;font:inherit;font-size:13px;font-weight:500;transition:.12s}
-button:hover:not(:disabled){border-color:var(--acc);color:var(--acc-d);background:#fff}
-button.primary{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
-button.primary:hover:not(:disabled){background:var(--acc-d);color:#fff}
-button.ghost{background:transparent;color:var(--muted)}
-button:disabled{opacity:.45;cursor:not-allowed}
-input,select{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:8px;
-  padding:7px 9px;font:inherit;font-size:13px;max-width:130px}
-input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
-input[type=range]{padding:0;max-width:120px}
-.label{font-size:11.5px;color:var(--muted);font-weight:600}
-.viz{min-height:240px;border:1px solid var(--line);border-radius:var(--r);background:#fff;padding:18px;
-  display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;position:relative;overflow:auto}
-.bars{display:flex;align-items:flex-end;gap:6px;height:190px}
-.bar{width:34px;min-height:4px;background:var(--acc);border-radius:6px 6px 0 0;color:#fff;font-size:11px;
-  font-weight:600;display:flex;align-items:flex-start;justify-content:center;padding-top:4px;
-  transition:height .28s ease,background .18s,transform .18s}
-.bar.hi{background:var(--blue)}.bar.on{background:var(--amber)}.bar.dim{background:#c9d0d9}
-.cells{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-.cells.col{flex-direction:column-reverse;align-items:center}
-.cell{min-width:44px;height:44px;padding:0 8px;border:1.5px solid var(--line);border-radius:8px;background:#fff;
-  display:flex;align-items:center;justify-content:center;font-weight:600;transition:.18s}
-.cell.on{border-color:var(--acc);background:var(--acc-bg);color:var(--acc-d)}
-.cell.hi{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);transform:translateY(-3px)}
-.cell.dim{opacity:.38}
-.nodes{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center}
-.node{min-width:46px;height:46px;padding:0 6px;border-radius:50%;border:2px solid var(--acc);background:var(--acc-bg);
-  color:var(--acc-d);display:flex;align-items:center;justify-content:center;font-weight:700;transition:.18s}
-.node.hi{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);transform:scale(1.1)}
-.node.dim{opacity:.35}
-.status{border:1px solid var(--line2);background:#fbfcfe;border-radius:8px;padding:10px 12px;font-size:13px;
-  color:var(--txt);min-height:40px;display:flex;align-items:center}
-.note{font-size:12px;color:var(--muted);background:var(--amber-bg);border:1px solid #f0e0c2;
-  border-radius:8px;padding:8px 11px}
-.badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted);
-  background:#f8fafc;border:1px solid var(--line2);border-radius:8px;padding:9px 11px;max-height:130px;overflow:auto}
-.steps{margin:2px 0 0;padding-left:20px;color:var(--muted);font-size:12.5px}
-.steps li{margin:2px 0}
-svg,canvas{max-width:100%}
-table{border-collapse:collapse;font-size:13px}
-td,th{border:1px solid var(--line2);padding:5px 9px}
-`;
-
-      /* The harness. Runs after the model's slots have been evaluated into
-         __init / actions / render. Written as a string because it is injected
-         into the generated document, not executed here. */
-      const HARNESS_JS = `
-(function(){
-  var C = __CONTROLS__, INTRO = __INTRO__;
-  var viz = document.getElementById('viz'), statusEl = document.getElementById('status'),
-      bar = document.getElementById('controls');
-  var state = null, timer = null, playing = null;
-
-  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
-  function fail(where, e){
-    var m = (e && e.message) || String(e);
-    __ee('error', where + ': ' + m);
-    return m;
-  }
-  function say(m){ statusEl.textContent = (m == null ? '' : String(m)); }
-
-  function inputs(){
-    var o = {};
-    C.forEach(function(c){
-      var e = document.getElementById('c_' + c.id);
-      if (!e) return;
-      if (c.kind === 'number' || c.kind === 'range') o[c.id] = Number(e.value);
-      else if (c.kind === 'select' || c.kind === 'text') o[c.id] = e.value;
-    });
-    return o;
-  }
-
-  function draw(){
-    if (typeof render !== 'function') {
-      viz.innerHTML = '<div class="note">No render() was generated for this concept.</div>';
-      return;
-    }
-    try { render(state, viz); }
-    catch(e){ viz.innerHTML = '<div class="note">render() threw: ' + esc(fail('render()', e)) + '</div>'; }
-  }
-
-  function fire(id){
-    var fn = (typeof actions === 'object' && actions) ? actions[id] : null;
-    if (typeof fn !== 'function') { say('This control has no action: ' + id); return { done:true }; }
-    var out;
-    try { out = fn(state, inputs()); }
-    catch(e){ say('That step failed — ' + fail(id + '()', e)); return { done:true }; }
-    draw();
-    var msg = (out && typeof out === 'object') ? out.status : out;
-    if (msg != null) say(msg);
-    return (out && typeof out === 'object') ? out : {};
-  }
-
-  function speed(){ var e = document.getElementById('c_speed'); return e ? Number(e.value) : 460; }
-  function stop(){
-    if (timer) { clearInterval(timer); timer = null; }
-    if (playing) {
-      var b = document.getElementById('c_' + playing.id);
-      if (b) b.textContent = playing.label;
-      playing = null;
-    }
-  }
-  function play(c){
-    if (playing) { stop(); return; }
-    playing = c;
-    var b = document.getElementById('c_' + c.id);
-    if (b) b.textContent = 'Pause';
-    var tick = function(){ if (fire(c.target || 'step').done) stop(); };
-    tick();
-    if (playing) timer = setInterval(tick, speed());
-  }
-  function restartTimer(){ if (playing) { clearInterval(timer); timer = setInterval(function(){ if (fire(playing.target || 'step').done) stop(); }, speed()); } }
-
-  function reset(){
-    stop();
-    var s;
-    try { s = (typeof __init === 'function') ? __init() : null; }
-    catch(e){ fail('stateInit', e); s = null; }
-    if (typeof s === 'function') { try { s = s(); } catch(e){ fail('stateInit()', e); s = null; } }
-    state = (s && typeof s === 'object') ? s : {};
-    draw();
-    say(INTRO);
-  }
-
-  function add(el){ bar.appendChild(el); }
-  function labelled(c, input){
-    var w = document.createElement('span');
-    w.className = 'row'; w.style.gap = '6px';
-    var l = document.createElement('span'); l.className = 'label'; l.textContent = c.label || c.id;
-    w.appendChild(l); w.appendChild(input);
-    add(w);
-  }
-
-  C.forEach(function(c){
-    var e;
-    if (c.kind === 'button' || c.kind === 'play') {
-      e = document.createElement('button');
-      e.id = 'c_' + c.id; e.textContent = c.label || c.id;
-      if (c.primary) e.className = 'primary';
-      e.onclick = function(){ if (c.kind === 'play') play(c); else { stop(); fire(c.id); } };
-      add(e);
-      return;
-    }
-    if (c.kind === 'select') {
-      e = document.createElement('select');
-      (c.options || []).forEach(function(o){
-        var op = document.createElement('option'); op.value = o; op.textContent = o; e.appendChild(op);
-      });
-      if (c.options && c.options.length) e.value = c.options[0];
-    } else if (c.kind === 'range' || c.kind === 'number') {
-      e = document.createElement('input');
-      e.type = c.kind;
-      if (c.min != null) e.min = c.min;
-      if (c.max != null) e.max = c.max;
-      e.value = (c.value != null ? c.value : (c.min != null ? c.min : 0));
-    } else {
-      e = document.createElement('input'); e.type = 'text';
-      if (c.value != null) e.value = c.value;
-    }
-    e.id = 'c_' + c.id;
-    var handler = function(){
-      if (c.id === 'speed') { restartTimer(); return; }
-      if (typeof actions === 'object' && actions && typeof actions[c.id] === 'function') fire(c.id);
-      else draw();
-    };
-    if (c.kind === 'range') e.oninput = handler; else e.onchange = handler;
-    labelled(c, e);
-  });
-
-  /* Always present, never generated: a speed control for any play button, and
-     Reset. Generated code that forgets them can't strand the learner. */
-  if (C.some(function(c){ return c.kind === 'play'; }) && !C.some(function(c){ return c.id === 'speed'; })) {
-    var sp = document.createElement('input');
-    sp.type = 'range'; sp.id = 'c_speed'; sp.min = 90; sp.max = 1200; sp.value = 460;
-    sp.oninput = restartTimer;
-    labelled({ label:'speed' }, sp);
-  }
-  var rb = document.createElement('button');
-  rb.textContent = 'Reset'; rb.className = 'ghost'; rb.onclick = reset;
-  add(rb);
-
-  reset();
-})();
-`;
-
       /* =====================================================================
          PART 2 — prompts
          =====================================================================
@@ -525,26 +310,15 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
          model's, and a bad page is regenerated (with the error as feedback)
          rather than patched.
 
-           · contextualChat — the page contract goes in `userMessage` (≤8000
-             chars, app-data.dto.ts) and the reply is pinned by a strict
-             json_schema: { html, controls, summary }. Uncapped output — this is
-             the route that makes full-page generation viable. The registered
-             system prompt carries only the role, so editing the contract never
-             needs a new admin approval.
-           · askAI — best-effort fallback only. One call, raw HTML back, told to
-             stay minimal because the 1500-token iteration cap (shared with the
-             model's reasoning) truncates anything ambitious. Browsers parse
-             truncated HTML forgivingly, so a cut-off page usually still renders
-             partially.
+         All three calls go straight to the same OpenAI-compatible endpoint
+         (llmChat, PART 6):
 
-         The prose is TWO further calls, and they ALWAYS ride askAI — the two
-         surfaces are two agents working in parallel:
+           · page  — SYSTEM_PROMPT as the system message, the contract below as
+             the user message, raw HTML streamed back. Uncapped output; the
+             budget in the contract is a latency rule, not a token cap.
 
-           · contextualChat — the page, and only the page. Its uncapped budget
-             and its 120 s window are spent on the one artifact that needs them.
-           · askAI — the prose. Title + concept and the how-to are a few
-             sentences each, which fits the 1500-token iteration cap with room
-             to spare, and they need no class context.
+         The prose is TWO further calls, kept separate so they can run in
+         parallel with the page:
 
            · head  — title + concept. Depends on nothing but the concept the
              learner typed, so it goes out at the same moment as the build call
@@ -553,9 +327,9 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
              exists. It lands last, into a page that is already interactive.
       */
 
-      /* Registered verbatim as the `explorable-build` prompt in register.sh.
-         Kept here so the two cannot drift; an admin reviews it before it works. */
-      const REGISTERED_SYSTEM_PROMPT =
+      /* The system message of the page call. (This used to be the registered
+         `explorable-build` prompt; now it is sent directly with every call.) */
+      const SYSTEM_PROMPT =
         'You are the generator behind Kiwi\'s Explorable Explanations app. Given a ' +
         'computer-science concept you produce a complete, self-contained ' +
         'interactive web page that teaches it: controls the learner presses, a ' +
@@ -566,12 +340,11 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         'made visible over a feature list, and make every action explain itself ' +
         'in one sentence a learner would understand.';
 
-      /* The page contract. Lives in the userMessage (not the registered system
-         prompt), so tightening it never needs a new admin approval.
+      /* The page contract — the user message of the page call.
 
-         Every rule here is also a LATENCY rule. The host aborts this op at 120 s
-         (@BridgeOp in kiwi/src/kiwi-app/app-data.controller.ts) and a page that
-         arrives late is discarded whole, so the contract is written to remove
+         Every rule here is also a LATENCY rule. The app aborts the call at
+         120 s (AI_TIMEOUT_MS) and a page that arrives late is discarded whole,
+         so the contract is written to remove
          decisions rather than to describe taste: the skeleton is given instead
          of chosen, the budget is a character count rather than a vibe, and the
          things models spend the most output on for the least teaching value —
@@ -628,28 +401,6 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         '    JavaScript strings.',
       ].join('\n');
 
-      /* Strict JSON Schema for the contextualChat path. Constraints are tuned to
-         the sanitiser in kiwi/src/kiwi-app/utils/output-schema.ts: root must be
-         an object, depth ≤5, ≤100 properties, ≤10k serialized chars, and strict
-         mode makes every declared property required — so keep the shape lean.
-
-         `controls` and `summary` are NOT decoration: the how-to call and
-         kiwi.updateContext need the control labels and the one-line summary, and
-         asking for them here is cheaper and more reliable than parsing them back
-         out of the HTML. Prose still comes from the separate head/howto calls. */
-      const PAGE_SCHEMA = {
-        type: 'object',
-        properties: {
-          html: { type: 'string', description: 'The complete HTML document, starting with <!doctype html>, under 6000 characters' },
-          controls: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'The visible labels of the interactive controls on the page, in order',
-          },
-          summary: { type: 'string', description: 'One sentence: what the interaction shows the learner' },
-        },
-      };
-
       function conceptLine(concept) {
         return 'Concept: "' + concept + '". Write the UI text in the same language as the concept.';
       }
@@ -677,27 +428,6 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
           ? '\nA previous attempt at this page failed with: ' + String(feedback).slice(0, 300) +
             '\nAvoid that mistake this time.\n'
           : '';
-      }
-
-      /* --- contextualChat: the whole page in one uncapped call ------------- */
-      function pageMessage(concept, feedback) {
-        return [
-          conceptLine(concept),
-          '',
-          'Build a small interactive explanation of it as a complete web page. Pick',
-          'the ONE thing about this concept that is best understood by doing rather',
-          'than reading, make that the interaction, and start writing.',
-          '',
-          PAGE_RULES,
-          feedbackLine(feedback),
-          'Return the JSON instance required by the output schema: `html` is the full',
-          'document, `controls` lists the visible labels of its interactive controls',
-          'in order, `summary` is one sentence saying what the interaction shows.',
-          'Do NOT write a title or an explanation around the page — separate calls',
-          'produce the text outside the iframe. Spend everything on the page itself.',
-          'Emit the JSON and nothing else: no plan, no notes, no explanation of',
-          'your choices before or after it.',
-        ].join('\n');
       }
 
       /* --- the head call: title + concept, fired WITH the build ------------ */
@@ -754,17 +484,17 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         ].join('\n');
       }
 
-      /* --- askAI: three calls, each inside the 1500-token iteration cap ---- */
+      /* --- shared preamble: all three calls are machine requests ----------- */
 
       const ASK_PREAMBLE =
         'This is a machine request from the Explorable Explanations app UI, not a ' +
         'student asking for help. Do not tutor, do not explain your answer, do not ' +
         'use markdown fences. Emit only the requested artifact.';
 
-      /* One call, raw HTML back. The 1500-token cap is shared with the model's
-         reasoning, so the prompt insists on a minimal page — a truncated reply
-         still renders partially (browsers close open tags; only an unfinished
-         <script> loses its own code), which beats a dead run. */
+      /* The page call: raw HTML back. Raw HTML beats JSON-wrapped HTML here —
+         no escaping to get wrong, and a truncated reply still renders
+         partially (browsers close open tags; only an unfinished <script>
+         loses its own code), which beats a dead run. */
       function pagePrompt(concept, feedback) {
         return [
           ASK_PREAMBLE,
@@ -775,8 +505,6 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
           'rather than reading, and make that the interaction.',
           '',
           PAGE_RULES,
-          '  - your token budget is TIGHT: keep the whole document minimal — one',
-          '    compact <style>, one compact <script>, no comments, under ~100 lines.',
           feedbackLine(feedback),
           'Reply with ONLY the HTML document, starting with <!doctype html>.',
           'No fences, no JSON, no commentary.',
@@ -814,26 +542,9 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         return f;
       }
 
-      /* Compile-only: `new Function` parses without running. Demo-page use only
-         (slotSource below) — generated pages are not compile-checked, they are
-         mounted and report their own runtime errors through the bridge. */
-      function checkExpression(code) {
-        try { new Function('return (' + code + ');'); return true; }
-        catch (e) { return (e && e.message) || 'syntax error'; }
-      }
-
-      /* Last resort for a slot that won't parse as an expression: the model
-         wrote statements (helpers, then `const actions = …`). Run them in an IIFE
-         and hand back whatever it named. */
-      function slotSource(name, code) {
-        if (checkExpression(code) === true) return 'var ' + name + ' = (' + code + ');';
-        return 'var ' + name + ' = (function(){\n' + code +
-               '\nreturn typeof ' + name + ' !== "undefined" ? ' + name + ' : undefined;\n})();';
-      }
-
-      /* Control labels for the how-to call and updateContext. The schema asks
-         the model for them; this is the fallback when it returns none (and the
-         only source on the askAI route, which returns raw HTML). */
+      /* Control labels for the how-to call and updateContext, parsed out of
+         the returned HTML — the page call returns a raw document, so this is
+         the only source. */
       function extractControls(html) {
         const out = [];
         const seen = {};
@@ -925,56 +636,14 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         return REPORT_JS + s;
       }
 
-      function esc(s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      }
-
-      /* Demo pages only (Part 9): turns a slot-shaped fixture into a full page
-         so the offline Simulator still shows something clickable. Generated
-         pages never pass through here. */
-      function assemble(a) {
-        const S = '<' + 'script>', SE = '<' + '/script' + '>';
-        return [
-          '<!doctype html><html lang="en"><head><meta charset="utf-8">',
-          '<meta name="viewport" content="width=device-width,initial-scale=1">',
-          '<style>' + RUNTIME_CSS + '</style></head><body>',
-          S,
-          'var __ee=function(k,d){try{parent.postMessage({__ee:"' + NONCE + '",kind:k,data:d},"*")}catch(e){}};',
-          'window.onerror=function(m,s,l){__ee("error",String(m)+(l?" (line "+l+")":""))};',
-          'window.addEventListener("unhandledrejection",function(e){__ee("error",String(e.reason))});',
-          SE,
-          '<div class="panel">',
-          '  <div class="controls" id="controls"></div>',
-          '  <div class="viz" id="viz"></div>',
-          '  <div class="status" id="status"></div>',
-          '</div>',
-          /* One <script> per slot on purpose. Sharing a tag means a syntax
-             error in render() also takes out actions — the learner then gets a
-             page where nothing at all responds, instead of one where the
-             buttons work and only the picture is missing. */
-          S, slotSource('__init', 'function(){ return (' + a.stateInit + '); }'), SE,
-          S, slotSource('actions', a.actions), SE,
-          S, slotSource('render', a.render), SE,
-          S,
-          HARNESS_JS
-            .replace('__CONTROLS__', JSON.stringify(a.controls || []))
-            .replace('__INTRO__', JSON.stringify(a.intro || 'Try a control.')),
-          SE,
-          S,
-          'setTimeout(function(){__ee("ready",document.body.scrollHeight)},80);',
-          SE,
-          '</body></html>',
-        ].join('\n');
-      }
-
       /* =====================================================================
          PART 5 — bridge wiring (debug goes to the console)
          =====================================================================
-         The product page shows no bridge traffic. Every event that the old
-         debug panel displayed is written to the DevTools console instead, with
-         the same direction taxonomy:
+         The bridge now carries only the EMBEDDING protocol (ready / context /
+         updateContext) — AI calls go straight to the API (PART 6). Every event
+         is written to the DevTools console with the same direction taxonomy:
 
-           ▶ app → kiwi   ◀ kiwi → app   ✦ simulated   • app-internal   ✕ error
+           ▶ app → out   ◀ in → app   ✦ simulated   • app-internal   ✕ error
       */
 
       const $ = (id) => document.getElementById(id);
@@ -1002,28 +671,16 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         'Big-O Notation', 'Sliding Window',
       ];
 
-      const PROMPT_ID = 'explorable-build';
-      const NEEDED_SCOPES = ['context:student_learning:read', 'llm:prompt:' + PROMPT_ID];
-
-      /* --- the SDK -------------------------------------------------------- */
+      /* --- the SDK — embedding only: ready, context, updateContext -------- */
       const kiwi = KiwiApp.create({
         appSlug: 'explorable',
-        timeoutMs: 150000,          // generation is slower than a chat reply
-        readyPayload: { preferredChatMode: 'sidepanel' },   // note: no tutoringMode — 'guidance' would gag the model
-        onEvent: (dir, type, payload) => {
-          if (type === 'kiwi:aiChunk') return;   // one event per token would bury the console
-          log(dir, type, payload);
-        },
-        /* Getters, not values: the fixtures are declared further down the file
-           and `const` bindings are still in their temporal dead zone here. */
-        simulator: {
-          get ai() { return simulatedAI; },
-          get token() { return SIM_TOKEN; },
-          ops: { get contextualChat() { return simulatedContextualChat; } },
-        },
+        readyPayload: { preferredChatMode: 'sidepanel' },
+        onEvent: (dir, type, payload) => log(dir, type, payload),
       });
 
       kiwi.onStatus((mode) => {
+        /* 'sim' now only means "no Kiwi host embeds this page" — generation
+           still works, it never depended on the host once AI went direct. */
         $('foot_sim').className = 'footsim' + (mode === 'sim' ? ' show' : '');
         console.info('%cExplorables%c mode: ' + mode,
           'background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700', '');
@@ -1031,117 +688,160 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
 
       kiwi.onContext((ctx) => {
         console.info('kiwi:context', ctx);
-        /* The token is what decides which AI surface we get, so ask for it even
-           though this app has no 'mcp' capability (ClassAppView honours an
-           explicit kiwi:requestToken regardless). */
-        kiwi.requestToken();
       });
 
       /* =====================================================================
-         PART 6 — which AI surface can we actually use?
+         PART 6 — the direct AI client
          =====================================================================
-         Both routes end at the same gpt-5.x model, but they are not the same
-         tool:
+         One route. Every call is a plain fetch to an OpenAI-compatible
+         /chat/completions endpoint (LiteLLM), streamed as SSE so the progress
+         line can show characters arriving. No app token, no scopes, no route
+         selection — the old askAI / contextualChat split is gone.
 
-           askAI          → /student/chat/v2 → agent loop, maxTokensPerIteration
-                            1500, Kiwi's tutor system prompt, RAG + code-interpreter
-                            + site-control tools attached.
-           contextualChat → /api/kiwi-apps/:slug/contextual-chat → LlmService
-                            .createChat with THIS app's registered system prompt,
-                            no tools, `prompt.maxTokens ?? undefined` (register the
-                            prompt without maxTokens and nothing is capped), and a
-                            strict json_schema response format.
+         NOTE: the API key ships inside this client-side file, readable by
+         anyone who opens the page source. Acceptable for this demo's shared
+         endpoint; do not reuse the pattern with a key you care about. */
 
-         The app token's scopes say which one is open, so we check them instead of
-         discovering it from a 403 halfway through a generation. The chosen route
-         stays visible as the one-line footer; the full reasoning goes to the
-         console. */
+      const AI_BASE_URL   = 'https://litellm.tunnel.kiwiai.org/v1';
+      const AI_API_KEY    = 'sk--25JFDRKNCR17wHBCQzY-g';
+      const AI_MODEL      = 'Qwen3.8-27B-fast';   // -fast = non-reasoning: tokens go to output, not thinking
+      const AI_TIMEOUT_MS = 120000;
 
-      /* A failed contextual-chat call is almost always one of three setup
-         mistakes, and the raw backend message names none of the places to fix
-         them. Translate. */
-      function explainContextualFailure(msg) {
-        const m = String(msg || '');
-        if (/not active|requires admin approval/i.test(m)) {
-          return 'the "' + PROMPT_ID + '" prompt is registered but NOT admin-approved. Approve it at ' +
-            '/admin/kiwi-apps -> Registered Apps -> the app -> Prompts -> Approve. ' +
-            '(The scope pre-check passed because a literal llm:prompt:… entry in the whitelist\'s ' +
-            'maxScopes lands in the token whether or not the prompt is approved — only ' +
-            'llm:prompt:* makes the token track approval.)';
+      /* One prompt in, the full reply text out. opts: { system, onChunk }. */
+      async function llmChat(userPrompt, opts) {
+        const o = opts || {};
+        const messages = [];
+        if (o.system) messages.push({ role: 'system', content: o.system });
+        messages.push({ role: 'user', content: userPrompt });
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+        log('out', 'llm:request', AI_MODEL + ' · ' + userPrompt.length + ' prompt chars');
+        try {
+          const res = await fetch(AI_BASE_URL + '/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + AI_API_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: AI_MODEL, messages: messages, stream: true }),
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            throw new Error('the model API answered ' + res.status +
+              (body ? ' — ' + body.slice(0, 200) : ''));
+          }
+
+          /* SSE: `data: {chunk}` lines, terminated by `data: [DONE]`. */
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '', full = '';
+          for (;;) {
+            const r = await reader.read();
+            if (r.done) break;
+            buf += decoder.decode(r.value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop();
+            for (const line of lines) {
+              const t = line.trim();
+              if (!t || t.indexOf('data:') !== 0) continue;
+              const payload = t.slice(5).trim();
+              if (payload === '[DONE]') continue;
+              let delta = '';
+              try {
+                const j = JSON.parse(payload);
+                delta = (j.choices && j.choices[0] && j.choices[0].delta &&
+                         j.choices[0].delta.content) || '';
+              } catch (e) { /* keep-alive or partial line — skip */ }
+              if (delta) {
+                full += delta;
+                if (o.onChunk) o.onChunk(delta, full);
+              }
+            }
+          }
+          log('in', 'llm:response', full.length + ' chars');
+          return full;
+        } catch (e) {
+          if (e && e.name === 'AbortError') {
+            throw new Error('the request timed out after ' + (AI_TIMEOUT_MS / 1000) + ' seconds');
+          }
+          throw e;
+        } finally {
+          clearTimeout(timer);
         }
-        if (/missing (required )?scope|op_not_granted/i.test(m)) {
-          return 'the app token is missing a scope — ' + m + '. Add it to the whitelist entry ' +
-            '(pencil icon; scopes typed in the Add dialog are dropped) and to the class\'s enabledScopes.';
-        }
-        if (/not enabled for this class/i.test(m)) {
-          return 'the app is not enabled for this class — /admin/class/<classID>/kiwi-apps.';
-        }
-        if (/not found/i.test(m)) {
-          return 'the backend does not know this app or prompt (' + m + '). Re-run register.sh.';
-        }
-        return 'contextual-chat failed (' + m + ')';
-      }
-
-      const engine = { mode: null, reason: '', forced: null, grounded: null };
-
-      function scopeMatches(granted, needed) {
-        return needed.every((n) =>
-          (granted || []).some((g) => g === n || (g.endsWith('*') && n.startsWith(g.slice(0, -1))))
-        );
-      }
-
-      function setEngine(mode, reason) {
-        engine.mode = mode;
-        engine.reason = reason;
-        paintEngine();
       }
 
       function paintEngine() {
-        const eff = engine.forced || engine.mode;
-        const foot = $('foot');
-        const t = $('foot_txt');
-        if (!eff) {
-          foot.className = 'foot';
-          t.textContent = 'Connecting…';
-          return;
-        }
-        if (eff === 'contextual') {
-          foot.className = 'foot good';
-          t.textContent = 'AI route: contextual-chat' + (engine.grounded ? ' · grounded in ' + engine.grounded : '');
-          console.info('AI route: contextual-chat for the page — this app\'s registered prompt, no tutor ' +
-            'agent, no tools, no max_completion_tokens (prompt registered without maxTokens), strict JSON ' +
-            'schema. Prose (head, how-to) rides askAI in parallel.' +
-            (engine.forced ? ' [forced]' : ''));
-        } else {
-          foot.className = 'foot capped';
-          t.textContent = 'AI route: askAI × 3';
-          console.info('AI route: askAI' + (engine.reason ? ' — ' + engine.reason : '') +
-            '. Goes through the student tutor agent (1500 completion tokens per iteration on a reasoning ' +
-            'model). The page is ONE best-effort call kept deliberately minimal — the cap makes anything ' +
-            'ambitious come back truncated — plus the head and how-to prose calls.' +
-            (engine.forced ? ' [forced]' : ''));
-        }
+        $('foot').className = 'foot good';
+        $('foot_txt').textContent = 'AI: ' + AI_MODEL + ' · direct';
+        console.info('AI route: direct — ' + AI_BASE_URL + ' · ' + AI_MODEL + '. The Kiwi bridge ' +
+          'carries no AI traffic; the page, head and how-to calls all hit the API from this file.');
       }
 
-      kiwi.onToken((t) => {
-        const scopes = (t && t.scopes) || [];
-        if (scopeMatches(scopes, NEEDED_SCOPES)) {
-          setEngine('contextual', '');
-        } else {
-          const missing = NEEDED_SCOPES.filter((s) => !scopeMatches(scopes, [s]));
-          setEngine('ask', 'the app token is missing ' + missing.join(' and ') +
-            ', so contextual-chat is closed (register + admin-approve the "' + PROMPT_ID + '" prompt to open it)');
-        }
-      });
-
       kiwi.ready();
-      /* No token within a couple of seconds means the host isn't minting one for
-         this app; askAI is the only route left. */
-      setTimeout(() => { if (!engine.mode) setEngine('ask', 'no app token arrived, so the scoped App API is unavailable'); }, 2500);
+      paintEngine();
 
       /* =====================================================================
          PART 7 — the pipeline
          ===================================================================== */
+
+      /* --- retrieval first: the premade catalog ----------------------------
+         premade/catalog.json maps concept aliases to hand-crafted, openly
+         licensed visualizations vendored under premade/ (currently the Galles
+         USF set, FreeBSD license). A hit replaces only the PAGE call — the
+         head and how-to prose are still generated, personalized to what the
+         learner typed. A miss falls through to generation, which is the whole
+         hybrid: curated for the canon, generated for the long tail. */
+
+      let CATALOG_INDEX = [];   // [{alias, entry}], longest alias first
+      fetch('premade/catalog.json', { cache: 'no-cache' })   /* the catalog changes more often than the app */
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => {
+          (list || []).forEach((e) => (e.match || []).forEach((a) => {
+            CATALOG_INDEX.push({ alias: normalizeConcept(a), entry: e });
+          }));
+          CATALOG_INDEX.sort((x, y) => y.alias.length - x.alias.length);
+          console.info('premade catalog: ' + (list || []).length + ' visualizations, ' +
+            CATALOG_INDEX.length + ' aliases');
+        })
+        .catch((e) => log('err', 'premade catalog failed to load', String(e)));
+
+      /* '+' survives normalization on purpose: it is what tells "b+ tree"
+         apart from "b tree". */
+      function normalizeConcept(s) {
+        return String(s || '').toLowerCase().replace(/[-_'’]/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+
+      /* Longest alias wins, so "binary search tree" beats "binary search".
+         Latin aliases match on word boundaries; CJK aliases by containment. */
+      function findPremade(concept) {
+        const c = normalizeConcept(concept);
+        if (!c) return null;
+        for (const cand of CATALOG_INDEX) {
+          if (c === cand.alias) return cand.entry;
+          if (/[一-鿿]/.test(cand.alias)) {
+            if (c.indexOf(cand.alias) >= 0) return cand.entry;
+          } else {
+            const esc = cand.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(c)) return cand.entry;
+          }
+        }
+        return null;
+      }
+
+      /* A premade hit is an artifact with a URL instead of HTML. finishArt
+         still runs so the how-to call gets the curated control labels. */
+      function premadeArt(concept, hit) {
+        setSteps(['Loading a curated visualization', 'Setting up']);
+        setStep(0, 'done', hit.title);
+        log('app', 'premade hit', '"' + concept + '" → ' + hit.title + ' (' + hit.url + ')');
+        return finishArt(concept, {
+          html: '', premade: hit,
+          controls: (hit.controls || []).slice(),
+          summary: String(hit.summary || ''),
+        });
+      }
 
       const current = { concept: '', art: null, html: '', via: '' };
       let busy = false;
@@ -1187,9 +887,11 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         $('r_title').style.display = 'none';
         $('r_sub').style.display = 'none';
         $('sk_head').className = 'sk show';
+        $('frame').removeAttribute('src');
         $('frame').srcdoc = '';
         $('frame').style.display = 'none';
         $('frame').style.height = '';
+        $('credit').style.display = 'none';
         $('stage').style.display = '';       /* a previous failure may have hidden it */
         $('r_replay').style.display = 'none';  /* nothing mounted yet to replay */
         $('stage').className = 'stage';
@@ -1240,33 +942,16 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         $('sk_howto').className = 'sk';
       }
 
-      /* Both routes share this: the class-level context request that grounds
-         the answer in this class's vocabulary. */
-      function contextRequestFor(concept) {
-        return {
-          kind: 'student_learning_context',
-          scope: 'current_user_current_class',
-          timeWindowDays: 30,
-          /* Must be non-empty (ArrayNotEmpty). Both of these are class-level,
-             so they need no student consent — and they make the explanation
-             land in this class's vocabulary rather than a generic one. */
-          include: ['weak_concepts', 'relevant_materials'],
-          retrievalQuery: concept,
-        };
-      }
+      /* --- the two prose calls ---------------------------------------------- */
 
-      /* --- the two prose calls: ALWAYS askAI ------------------------------- */
-
-      /* Two agents in parallel: contextual-chat writes the page, askAI writes
-         the prose. A few sentences fit the 1500-token cap with room to spare,
-         need no class context, and keeping them off contextual-chat leaves its
-         uncapped budget and 120 s window entirely to the page. */
+      /* Separate calls on purpose: a few sentences each, so they stream back
+         fast and never compete with the page call for the progress line. */
 
       /* Title + concept. Depends only on the concept the learner typed, so the
          caller fires it BEFORE the build and never awaits it inline — that is
          what puts words on the page while the page is still being written. */
       function fetchHead(concept) {
-        return kiwi.askAI(headPrompt(concept))
+        return llmChat(headPrompt(concept))
           .then((r) => parseJSONLoose(r))
           .catch((e) => {
             log('err', 'head call failed', (e && e.message) || String(e));
@@ -1277,7 +962,7 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
       /* The how-to names the controls, so it can only start once they exist.
          A failure here costs the how-to line and nothing else. */
       function fetchHowto(concept, plan) {
-        return kiwi.askAI(howtoPrompt(concept, plan))
+        return llmChat(howtoPrompt(concept, plan))
           .then((r) => parseJSONLoose(r))
           .catch((e) => {
             log('err', 'how-to call failed', (e && e.message) || String(e));
@@ -1298,32 +983,12 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         return art;
       }
 
-      /* --- contextual: the whole page in one uncapped call ------------------ */
-      async function buildViaContextual(concept, feedback) {
+      /* --- the page call: raw HTML, streamed --------------------------------- */
+      async function buildPage(concept, feedback) {
         setSteps(['Generating the page', 'Setting up']);
         setStep(0, 'run', '');
-        const res = await kiwi.contextualChat({
-          promptId: PROMPT_ID,
-          userMessage: pageMessage(concept, feedback),  // ≤8000 chars (app-data.dto.ts)
-          contextRequest: contextRequestFor(concept),
-          outputSchema: PAGE_SCHEMA,
-        });
-        engine.grounded = (res.contextIncluded || []).join(', ') || null;
-        if ((res.contextOmitted || []).length) log('app', 'context omitted', res.contextOmitted);
-        paintEngine();
-        const art = parseJSONLoose(res.output);
-        if (!art) throw new Error('contextual-chat returned something that is not JSON');
-        art.html = finalizeHtml(art.html);
-        if (!art.html) throw new Error('the reply contained no HTML document');
-        setStep(0, 'done', Math.round(art.html.length / 100) / 10 + 'k chars');
-        return finishArt(concept, art);
-      }
-
-      /* --- askAI: one best-effort call, raw HTML back ----------------------- */
-      async function buildViaAsk(concept, feedback) {
-        setSteps(['Generating the page', 'Setting up']);
-        setStep(0, 'run', '');
-        const raw = await kiwi.askAI(pagePrompt(concept, feedback), {
+        const raw = await llmChat(pagePrompt(concept, feedback), {
+          system: SYSTEM_PROMPT,
           onChunk: (_c, full) => setStep(0, 'run', full.length + ' chars'),
         });
         const html = finalizeHtml(raw);
@@ -1345,42 +1010,23 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
            its shape from the moment Explore is pressed. */
         showSkeleton();
 
-        const via = engine.forced || engine.mode || 'ask';
-
         /* Out before the build, and never awaited here: the header repaints on
            its own as soon as this lands, which on a slow build is long before
-           there is anything to mount. Rides askAI on BOTH routes, so on the
-           contextual route the two surfaces genuinely run in parallel. */
+           there is anything to mount — the head and page calls genuinely run
+           in parallel. */
         const headP = fetchHead(concept).then((t) => {
           if (current.concept === concept) paintHead(t);
           return t;
         });
 
         try {
-          let art;
-          try {
-            art = via === 'contextual' ? await buildViaContextual(concept, feedback)
-                                       : await buildViaAsk(concept, feedback);
-            current.via = via;
-          } catch (e) {
-            if (via !== 'contextual') throw e;
-            const msg = (e && e.message) || String(e);
-            log('err', 'contextual-chat failed', msg);
-            /* A timeout is NOT a reason to change route. The host aborts this op
-               at 120 s (kiwi/src/kiwi-app/app-data.controller.ts @BridgeOp), and
-               askAI cannot stand in: the tutor agent gets 1500 completion tokens
-               per iteration, so it answers with prose and the run dies on "the
-               reply contained no HTML document" — the real page never had a
-               chance, and setEngine('ask') would have made every LATER attempt
-               fail the same way for the rest of the session. Surface the timeout
-               as itself; the warn bar retries it, asking for a smaller page. */
-            if (TIMED_OUT_RE.test(msg)) throw new Error(TIMEOUT_MSG);
-            /* Anything else really is a route problem (scope, 4xx, network):
-               log what to fix, then finish the run on the other route. */
-            setEngine('ask', explainContextualFailure(msg));
-            art = await buildViaAsk(concept, feedback);
-            current.via = 'ask';
-          }
+          /* Retrieval first: a catalog hit costs nothing and is already
+             pedagogically vetted. Regenerate-with-feedback skips the catalog —
+             feedback means the learner explicitly wants a *different* page. */
+          const hit = feedback ? null : findPremade(concept);
+          const art = hit ? premadeArt(concept, hit)
+                          : await buildPage(concept, feedback);
+          current.via = hit ? 'premade' : 'direct';
 
           /* No compile-check, no repair ladder: the page is the model's own
              document. It mounts as-is; if it throws at runtime, the injected
@@ -1393,7 +1039,7 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
           console.info('artifact', { via: current.via, chars: art.html.length, controls: art.controls, summary: art.summary });
           current.art = art;
           render();
-          setStep(1, 'done', Math.round(current.html.length / 1024) + ' KB');
+          setStep(1, 'done', art.premade ? art.premade.title : Math.round(current.html.length / 1024) + ' KB');
           doneSteps();
 
           /* The interactive is on screen already; the prose fills in behind it.
@@ -1424,7 +1070,7 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
           failSkeleton();
           showWarn(
             timedOut
-              ? 'This page took longer than Kiwi\'s 120-second limit and was cancelled before it finished. ' +
+              ? 'This page took longer than the 120-second limit and was cancelled before it finished. ' +
                 'Retrying asks for a smaller page, which usually lands in time.'
               : 'Generation failed: ' + msg,
             timedOut ? TIMEOUT_FEEDBACK : null,
@@ -1438,21 +1084,78 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         }
       }
 
-      /* Mounts the generated page and nothing else. The header and the how-to
-         are owned by paintHead/paintHowto, so re-mounting — Replay — never
-         resets prose that is already on screen. */
+      /* Mounts the page and nothing else. The header and the how-to are owned
+         by paintHead/paintHowto, so re-mounting — Replay — never resets prose
+         that is already on screen. Generated pages arrive as srcdoc with the
+         injected reporter; premade pages load by URL from our own origin, so
+         they have no reporter — no watchdog, fixed height, credit line up. */
+      /* A fresh iframe per mount. Mutating sandbox/src/srcdoc on one long-lived
+         frame is unreliable (a frame that has been an opaque srcdoc doc can
+         keep refusing URL loads even after allow-same-origin is added), and a
+         new element also guarantees no state leaks between runs. */
+      function freshFrame(sandbox) {
+        const old = $('frame');
+        const f = document.createElement('iframe');
+        f.id = 'frame';
+        f.title = old.title;
+        f.setAttribute('sandbox', sandbox);
+        old.replaceWith(f);
+        return f;
+      }
+
+      /* Premade pages are vetted sources — local vendored files or the
+         hotlinked catalog sites — so they get allow-same-origin (for a
+         cross-origin URL that just means the page keeps its own origin).
+         Model-authored pages never do. A fresh frame per mount also makes
+         Replay a true reload, which a query-buster cannot do for the
+         hotlinked SPAs (changing the hash would not remount their router). */
+      /* Premade pages have no height reporter, so size the frame to the
+         viewport instead: as tall as fits above the fold (minus the app's own
+         chrome), floored at the catalog height so a short window still shows
+         the whole canvas via scrolling, capped so huge monitors don't get a
+         silly tower. */
+      function premadeHeight(pre) {
+        return Math.round(Math.max(pre.height || 620, Math.min(window.innerHeight - 190, 900)));
+      }
+
+      function mountPremadeFrame(pre) {
+        const f = freshFrame('allow-scripts allow-same-origin');
+        f.src = pre.url;
+        f.style.height = premadeHeight(pre) + 'px';
+        return f;
+      }
+
+      /* The wide stage is CSS-only, but the height needs re-deriving. */
+      window.addEventListener('resize', () => {
+        const pre = current.art && current.art.premade;
+        if (pre && $('frame').getAttribute('src')) $('frame').style.height = premadeHeight(pre) + 'px';
+      });
+
       function render() {
+        const pre = current.art.premade;
         current.html = current.art.html;
-        armWatchdog();
-        $('frame').srcdoc = current.html;
+        if (pre) {
+          if (aliveTimer) clearTimeout(aliveTimer);
+          watchdogWarned = false;
+          $('stage').className = 'stage wide';   /* premade canvases are ~1000px wide */
+          mountPremadeFrame(pre);
+          $('credit').textContent = 'Visualization: ' + (pre.credit ||
+            'David Galles, University of San Francisco (FreeBSD license)');
+          $('credit').style.display = '';
+        } else {
+          $('stage').className = 'stage';        /* generated pages fit the column */
+          $('credit').style.display = 'none';
+          armWatchdog();
+          freshFrame('allow-scripts').srcdoc = current.html;
+        }
         $('sk_stage').className = 'sk sk-stage';
         $('frame').style.display = '';
         $('r_replay').style.display = '';   /* there is now something to replay */
         $('result').className = 'result show';
         const text = current.art.text || defaultText(current.concept);
         console.info('mounted "' + (text.title || current.concept) + '" · ' +
-          Math.round(current.html.length / 1024) + ' KB · via ' +
-          (current.via === 'contextual' ? 'contextual-chat ×1 + askAI ×2' : 'askAI × 3') +
+          (pre ? 'premade (' + pre.url + ') + LLM prose ×2'
+               : Math.round(current.html.length / 1024) + ' KB · via direct API (' + AI_MODEL + ') ×3') +
           ' — source: __explorable.source()');
       }
 
@@ -1467,12 +1170,11 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         $('warn').className = 'warn show';
       }
 
-      /* The host aborts contextualChat at 120 s and the abort surfaces through
-         the bridge as `op timed out: contextualChat`. Matched in one place so the
-         retry copy and the route decision cannot disagree about what a timeout
-         is. */
+      /* llmChat aborts the fetch at AI_TIMEOUT_MS and surfaces it as
+         `the request timed out after …`. Matched in one place so the retry
+         copy cannot disagree about what a timeout is. */
       const TIMED_OUT_RE = /timed out/i;
-      const TIMEOUT_MSG = 'the page took longer than Kiwi\'s 120-second limit to generate';
+      const TIMEOUT_MSG = 'the page took longer than the 120-second limit to generate';
       const TIMEOUT_FEEDBACK =
         'the previous attempt was aborted after 120 seconds without finishing. ' +
         'Make this page distinctly smaller and plainer so it arrives in time: ' +
@@ -1486,12 +1188,15 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
          which looks like a clean white box from outside. Say so. */
       let frameAlive = false;
       let aliveTimer = null;
+      let watchdogWarned = false;
       function armWatchdog() {
         frameAlive = false;
+        watchdogWarned = false;
         if (aliveTimer) clearTimeout(aliveTimer);
         aliveTimer = setTimeout(() => {
           if (frameAlive || !current.html) return;
           log('err', 'generated page silent', 'no ready/error message within 4s of mounting');
+          watchdogWarned = true;
           showWarn('The page mounted but never reported in — it likely rendered blank. ' +
             'Regenerating usually fixes this.',
             'the previous page rendered blank: its scripts never ran or it drew nothing');
@@ -1502,6 +1207,11 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         const d = e.data;
         if (!d || d.__ee !== NONCE) return;
         frameAlive = true;
+        /* A late first report proves the page is alive after all — take the
+           watchdog's "rendered blank" warning back down (a browser that
+           throttles a background tab can delay the frame's first post well
+           past the 4 s window). */
+        if (watchdogWarned) { watchdogWarned = false; $('warn').className = 'warn'; }
         if (d.kind === 'ready') {
           /* Logged, not silent: "the stage went blank" is otherwise impossible to
              tell apart from "the stage is fine but its pixels never reached the
@@ -1535,7 +1245,12 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
         $('chips').appendChild(el);
       });
 
-      $('r_replay').onclick = () => { $('warn').className = 'warn'; $('frame').srcdoc = current.html; };
+      $('r_replay').onclick = () => {
+        $('warn').className = 'warn';
+        const pre = current.art && current.art.premade;
+        if (pre) mountPremadeFrame(pre);       /* fresh frame = clean reload */
+        else $('frame').srcdoc = current.html;
+      };
       /* Repair = regenerate with the error folded into the prompt. Patching one
          function inside a model-authored page is guesswork; asking for the page
          again with "avoid this mistake" is not. */
@@ -1549,356 +1264,13 @@ td,th{border:1px solid var(--line2);padding:5px 9px}
       /* Everything the old debug panel offered, now from the console. */
       window.__explorable = {
         kiwi,
-        engine,
-        /* Force the capped askAI route (pass false to go back to auto). */
-        forceAskAI(on = true) { engine.forced = on ? 'ask' : null; paintEngine(); return engine; },
-        /* Switch between Simulator and Live. */
-        mode(m) { if (m) kiwi.setMode(m); return kiwi.mode; },
         /* The full HTML of the currently mounted explanation. */
         source() { return current.html; },
-        /* The parsed artifact (slots, controls, steps) behind it. */
+        /* The parsed artifact (html, controls, summary, text) behind it. */
         artifact() { return current.art; },
       };
-      console.info('%cExplorables%c debug API: __explorable.forceAskAI() · .mode("sim"|"live") · .source() · .artifact() — bridge traffic logs here.',
+      console.info('%cExplorables%c debug API: __explorable.source() · .artifact() — AI + bridge traffic logs here.',
         'background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700', '');
-
-      /* =====================================================================
-         PART 9 — the Simulator
-         =====================================================================
-         With nothing embedding the page, the SDK answers locally. These
-         fixtures answer BOTH surfaces the app can use, in their real shapes:
-
-           · simulatedContextualChat — the page reply ({html, controls,
-             summary}, the way the uncapped schema-pinned call comes back), plus
-             the head and how-to replies.
-           · simulatedAI — the page as raw HTML (the way the capped route
-             returns it), plus the head and how-to replies.
-
-         The demo pages themselves are built by assemble() (Part 4) from the
-         slot-shaped fixtures below — that mini-runtime is Simulator-only.
-
-         Flip between them with __explorable.forceAskAI() in the console.
-         The explanations below are handwritten, not generated — that is what the
-         Demo badge in the footer means.
-      */
-
-      /* The scopes a properly registered + admin-approved install would carry.
-         Drop 'llm:prompt:explorable-build' here to see the fallback reasoning. */
-      const SIM_TOKEN = {
-        accessToken: 'sim.explorable.token',
-        scopes: ['context:student_learning:read', 'llm:prompt:explorable-build', 'class:info:read'],
-        expiresIn: 3600,
-        appSlug: 'explorable',
-      };
-
-      const DEMOS = {};
-
-      DEMOS.sort = {
-        title: 'Bubble Sort',
-        subtitle: 'Compare two neighbours, swap when the left one is bigger, repeat until a pass changes nothing.',
-        intro: 'Press Step to compare the first two bars.',
-        controls: [
-          { id: 'step', kind: 'button', label: 'Step', primary: true },
-          { id: 'run', kind: 'play', label: 'Run', target: 'step' },
-          { id: 'shuffle', kind: 'button', label: 'Shuffle' },
-        ],
-        stateInit: '{ a: [5,3,8,1,9,2,7,4], i: 0, j: 0, done: false }',
-        actions: [
-          '{',
-          '  step: function(s){',
-          '    if (s.done) return "Already sorted — press Reset to try again.";',
-          '    if (s.i >= s.a.length - 1) { s.done = true; return { status: "Sorted. The last pass moved nothing, which is exactly how bubble sort knows it is finished.", done: true }; }',
-          '    if (s.j >= s.a.length - 1 - s.i) { s.i++; s.j = 0; return "Pass finished — the largest value still in play is parked on the right. " + (s.a.length - s.i) + " bars left to sort."; }',
-          '    var x = s.a[s.j], y = s.a[s.j + 1];',
-          '    if (x > y) { s.a[s.j] = y; s.a[s.j + 1] = x; s.j++; return "Compared " + x + " and " + y + ": the left one is bigger, so they swap."; }',
-          '    s.j++;',
-          '    return "Compared " + x + " and " + y + ": already in order, so nothing moves.";',
-          '  },',
-          '  shuffle: function(s){',
-          '    s.a = s.a.map(function(){ return 1 + Math.floor(Math.random() * 9); });',
-          '    s.i = 0; s.j = 0; s.done = false;',
-          '    return "New array. Press Step to start comparing again.";',
-          '  }',
-          '}',
-        ].join('\n'),
-        render: [
-          'function(s, el){',
-          '  el.innerHTML = \'<div class="bars">\' + s.a.map(function(v, k){',
-          '    var cls = (!s.done && (k === s.j || k === s.j + 1)) ? " hi" : (k >= s.a.length - s.i ? " dim" : "");',
-          '    return \'<div class="bar\' + cls + \'" style="height:\' + (v * 17 + 20) + \'px">\' + v + \'</div>\';',
-          '  }).join("") + \'</div>\';',
-          '}',
-        ].join('\n'),
-        steps: [
-          'Step once and read the sentence under the bars — it says what the comparison decided.',
-          'Hold Run and watch the grey tail on the right grow by one bar per pass.',
-          'Shuffle, then predict how many passes it will need before pressing Run.',
-        ],
-      };
-
-      DEMOS.stack = {
-        title: 'Stack',
-        subtitle: 'Last in, first out — the newest value is the only one you can reach.',
-        intro: 'Push a value and watch where it lands.',
-        controls: [
-          { id: 'val', kind: 'number', label: 'value', value: 7 },
-          { id: 'push', kind: 'button', label: 'Push', primary: true },
-          { id: 'pop', kind: 'button', label: 'Pop' },
-          { id: 'peek', kind: 'button', label: 'Peek' },
-        ],
-        stateInit: '{ items: [3, 8], look: -1 }',
-        actions: [
-          '{',
-          '  push: function(s, inputs){',
-          '    var v = inputs.val;',
-          '    if (!isFinite(v)) return "That is not a number, so nothing was pushed.";',
-          '    s.items.push(v); s.look = -1;',
-          '    return "Pushed " + v + " onto the top. It is now the only value you can reach without removing something.";',
-          '  },',
-          '  pop: function(s){',
-          '    s.look = -1;',
-          '    if (!s.items.length) return "Underflow: there is nothing to pop. A real implementation raises an error here.";',
-          '    var v = s.items.pop();',
-          '    return "Popped " + v + " — the newest value, not the oldest. " + s.items.length + " left.";',
-          '  },',
-          '  peek: function(s){',
-          '    if (!s.items.length) return "Nothing to peek at.";',
-          '    s.look = s.items.length - 1;',
-          '    return "Peek reads " + s.items[s.look] + " from the top without removing it — the size is still " + s.items.length + ".";',
-          '  }',
-          '}',
-        ].join('\n'),
-        render: [
-          'function(s, el){',
-          '  if (!s.items.length) { el.innerHTML = \'<div class="cells col"><div class="cell dim">empty</div></div>\'; return; }',
-          '  el.innerHTML = \'<div class="cells col">\' + s.items.map(function(v, k){',
-          '    var top = k === s.items.length - 1;',
-          '    return \'<div class="cell\' + (k === s.look ? " hi" : (top ? " on" : "")) + \'">\' + v + \'</div>\';',
-          '  }).join("") + \'</div>\';',
-          '}',
-        ].join('\n'),
-        steps: [
-          'Push three values, then pop once — note which one comes back.',
-          'Peek and check the size afterwards: reading is not removing.',
-          'Pop an empty stack to see the underflow case.',
-        ],
-      };
-
-      DEMOS.queue = {
-        title: 'Queue',
-        subtitle: 'First in, first out — the value that has waited longest is the one that leaves.',
-        intro: 'Enqueue a value and watch it join the back of the line.',
-        controls: [
-          { id: 'val', kind: 'number', label: 'value', value: 7 },
-          { id: 'enqueue', kind: 'button', label: 'Enqueue', primary: true },
-          { id: 'dequeue', kind: 'button', label: 'Dequeue' },
-          { id: 'peek', kind: 'button', label: 'Peek' },
-        ],
-        stateInit: '{ items: [3, 8], look: -1 }',
-        actions: [
-          '{',
-          '  enqueue: function(s, inputs){',
-          '    var v = inputs.val;',
-          '    if (!isFinite(v)) return "That is not a number, so nothing joined the queue.";',
-          '    s.items.push(v); s.look = -1;',
-          '    return "Enqueued " + v + " at the back. " + (s.items.length - 1) + " value(s) are ahead of it.";',
-          '  },',
-          '  dequeue: function(s){',
-          '    s.look = -1;',
-          '    if (!s.items.length) return "The queue is empty — there is nothing waiting to be served.";',
-          '    var v = s.items.shift();',
-          '    return "Dequeued " + v + " from the front — the value that had waited longest, not the newest.";',
-          '  },',
-          '  peek: function(s){',
-          '    if (!s.items.length) return "Nothing to peek at.";',
-          '    s.look = 0;',
-          '    return "Peek reads " + s.items[0] + " from the front without serving it — the length is still " + s.items.length + ".";',
-          '  }',
-          '}',
-        ].join('\n'),
-        render: [
-          'function(s, el){',
-          '  if (!s.items.length) { el.innerHTML = \'<div class="cells"><div class="cell dim">empty</div></div>\'; return; }',
-          '  el.innerHTML = \'<div class="col"><div class="cells">\' + s.items.map(function(v, k){',
-          '    return \'<div class="cell\' + (k === s.look ? " hi" : (k === 0 ? " on" : "")) + \'">\' + v + \'</div>\';',
-          '  }).join("") + \'</div><div class="row"><span class="label">front — served next</span></div></div>\';',
-          '}',
-        ].join('\n'),
-        steps: [
-          'Enqueue twice, then dequeue once — check which value came back.',
-          'Compare with a stack: same two operations, opposite end.',
-          'Peek reads the front without removing it.',
-        ],
-      };
-
-      DEMOS.search = {
-        title: 'Binary Search',
-        subtitle: 'The list is sorted, so one comparison can rule out half of what is left.',
-        intro: 'Pick a target and press Step.',
-        controls: [
-          { id: 'target', kind: 'number', label: 'target', value: 23 },
-          { id: 'step', kind: 'button', label: 'Step', primary: true },
-          { id: 'run', kind: 'play', label: 'Run', target: 'step' },
-        ],
-        stateInit: '{ a: [2,5,8,12,16,23,38,56,72,91], lo: 0, hi: 9, mid: -1, found: -1, over: false }',
-        actions: [
-          '{',
-          '  step: function(s, inputs){',
-          '    if (s.over) return { status: "Finished — press Reset to search again.", done: true };',
-          '    var t = inputs.target;',
-          '    if (s.lo > s.hi) { s.over = true; s.mid = -1; return { status: t + " is not in the list, and it took only a handful of comparisons to rule out all ten values.", done: true }; }',
-          '    s.mid = Math.floor((s.lo + s.hi) / 2);',
-          '    var v = s.a[s.mid];',
-          '    if (v === t) { s.found = s.mid; s.over = true; return { status: "Found " + t + " at index " + s.mid + ".", done: true }; }',
-          '    if (v < t) { s.lo = s.mid + 1; return "a[" + s.mid + "] = " + v + " is smaller than " + t + ", so everything from there leftwards is ruled out."; }',
-          '    s.hi = s.mid - 1;',
-          '    return "a[" + s.mid + "] = " + v + " is larger than " + t + ", so everything from there rightwards is ruled out.";',
-          '  }',
-          '}',
-        ].join('\n'),
-        render: [
-          'function(s, el){',
-          '  el.innerHTML = \'<div class="cells">\' + s.a.map(function(v, k){',
-          '    var cls = k === s.found ? " on" : (k === s.mid ? " hi" : ((k < s.lo || k > s.hi) ? " dim" : ""));',
-          '    return \'<div class="cell\' + cls + \'">\' + v + \'</div>\';',
-          '  }).join("") + \'</div>\';',
-          '}',
-        ].join('\n'),
-        steps: [
-          'Step once and count how many values went grey.',
-          'Change the target to something absent, like 40, and Run it.',
-          'Ten values need at most four probes — that is the log₂ in the complexity.',
-        ],
-      };
-
-      function genericDemo(concept) {
-        const c = String(concept);
-        return {
-          title: c,
-          subtitle: 'Walk the process one stage at a time and watch what changes.',
-          intro: 'Press Step to advance one stage.',
-          controls: [
-            { id: 'step', kind: 'button', label: 'Step', primary: true },
-            { id: 'run', kind: 'play', label: 'Run', target: 'step' },
-          ],
-          stateInit: '{ stage: 0, names: ["Input", "Work", "Result"], seen: [] }',
-          actions: [
-            '{',
-            '  step: function(s){',
-            '    if (s.stage >= s.names.length - 1) return { status: "That is the last stage — press Reset to walk it again.", done: true };',
-            '    s.stage++;',
-            '    s.seen.push(s.names[s.stage]);',
-            '    return "Now at stage " + (s.stage + 1) + " of " + s.names.length + ": " + s.names[s.stage] + ".";',
-            '  }',
-            '}',
-          ].join('\n'),
-          render: [
-            'function(s, el){',
-            '  el.innerHTML = \'<div class="nodes">\' + s.names.map(function(n, k){',
-            '    return \'<div class="node\' + (k === s.stage ? " hi" : (k > s.stage ? " dim" : "")) + \'">\' + (k + 1) + \'</div>\';',
-            '  }).join(\'<span class="label">→</span>\') + \'</div>\';',
-            '}',
-          ].join('\n'),
-          steps: [
-            'This one is a built-in sample: in demo mode there is no model to design a visual for "' + c + '".',
-            'Open the app inside a Kiwi class, or try Bubble Sort, Stack or Binary Search offline.',
-          ],
-        };
-      }
-
-      function pickDemo(concept) {
-        const c = String(concept || '').toLowerCase();
-        if (/sort/.test(c)) return DEMOS.sort;
-        if (/queue/.test(c)) return DEMOS.queue;
-        if (/stack|deque/.test(c)) return DEMOS.stack;
-        if (/search/.test(c) && !/tree|graph|depth|breadth/.test(c)) return DEMOS.search;
-        return genericDemo(concept);
-      }
-
-      function conceptOf(prompt) {
-        const m = String(prompt || '').match(/Concept:\s*"([^"]+)"/);
-        return m ? m[1] : 'this concept';
-      }
-
-      /* The demo's prose, in the two prose calls' shapes. */
-      function demoHead(d) {
-        return { title: d.title, concept: d.subtitle };
-      }
-
-      function demoHowto(d) {
-        return { howto: (d.steps || []).slice(0, 2).join(' ') };
-      }
-
-      function demoControls(d) {
-        return (d.controls || []).map((c) => c.label || c.id);
-      }
-
-      /* What the CAPPED route realistically returns: a minimal page. Also what
-         keeps the offline demo usable — the Simulator streams askAI replies at
-         ~28 words/second, so the full demo page would take close to a minute.
-         Split closing tag: a literal one would end the outer script block. */
-      function demoMiniPage(d) {
-        const SE = '<' + '/script' + '>';
-        const steps = JSON.stringify((d.steps || ['Press Step to advance.']).concat(['Done - press Reset to run it again.']));
-        return [
-          '<!doctype html><html><head><meta charset="utf-8"><style>',
-          'body{font:14px/1.5 -apple-system,system-ui,sans-serif;margin:0;padding:18px;color:#1b2230}',
-          '.c{display:flex;gap:8px;margin-bottom:12px}',
-          'button{font:inherit;padding:7px 14px;border:1px solid #d8dee8;border-radius:8px;background:#f3f5f8;cursor:pointer}',
-          'button.p{background:#1f9d76;border-color:#1f9d76;color:#fff}',
-          '.dots{display:flex;gap:8px;margin:14px 0}',
-          '.d{width:34px;height:34px;border-radius:50%;border:2px solid #d8dee8;display:flex;align-items:center;justify-content:center;font-weight:700;color:#8a94a3}',
-          '.d.on{border-color:#1f9d76;background:#e9f7f1;color:#178060}',
-          '.s{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;background:#fbfcfe;min-height:40px}',
-          '</style></head><body>',
-          '<div class="c"><button class="p" id="step">Step</button><button id="reset">Reset</button></div>',
-          '<div class="dots" id="dots"></div><div class="s" id="st"></div>',
-          '<' + 'script>',
-          'var STEPS=' + steps + ',i=-1;',
-          'var dots=document.getElementById("dots"),st=document.getElementById("st");',
-          'function draw(){dots.innerHTML=STEPS.map(function(_,k){return \'<div class="d\'+(k<=i?" on":"")+\'">\'+(k+1)+"</div>"}).join("");',
-          'st.textContent=i<0?"Press Step.":STEPS[i];}',
-          'document.getElementById("step").onclick=function(){if(i<STEPS.length-1)i++;draw();};',
-          'document.getElementById("reset").onclick=function(){i=-1;draw();};draw();',
-          SE, '</body></html>',
-        ].join('\n');
-      }
-
-      /* The demo's interactive parts, in the (lean) build call's shape. */
-      function demoSlots(d) {
-        return {
-          intro: d.intro,
-          controls: d.controls,
-          stateInit: d.stateInit,
-          actions: d.actions,
-          render: d.render,
-        };
-      }
-
-      /* --- the uncapped surface: only the page ever arrives here ----------- */
-      function simulatedContextualChat(params) {
-        const msg = (params && params.userMessage) || '';
-        const d = pickDemo(conceptOf(msg));
-        const body = { html: assemble(demoSlots(d)), controls: demoControls(d), summary: d.subtitle };
-        return {
-          output: JSON.stringify(body),
-          promptId: PROMPT_ID,
-          promptName: 'Explorable Explanation Builder',
-          contextIncluded: ['weak_concepts', 'relevant_materials'],
-          contextOmitted: [],
-        };
-      }
-
-      /* --- the capped surface: which of the three calls is this? ----------- */
-      function simulatedAI(prompt) {
-        const p = String(prompt || '');
-        const d = pickDemo(conceptOf(p));
-
-        if (/Write the two text parts/.test(p)) return JSON.stringify(demoHead(d));
-        if (/Write the how-to line/.test(p)) return JSON.stringify(demoHowto(d));
-        if (/as a complete web page/.test(p)) return demoMiniPage(d);
-        return 'The Simulator has no fixture for that request.';
-      }
 
     </script>
   </body>
