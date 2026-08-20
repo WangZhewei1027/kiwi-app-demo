@@ -51,11 +51,11 @@ host. There are no offline fixtures any more.
 - **Retrieval first.** `generate()` consults `premade/catalog.json` before
   calling the model; a hit mounts the curated page (fresh iframe per mount,
   `allow-scripts allow-same-origin`, vetted sources only) and still generates
-  the head/how-to prose. Catalog URLs are either hotlinks to
-  https://csvistool.com (preferred, modern; verified frameable — recheck
-  headers if it ever goes blank) or local files under `premade/galles/`
-  (FreeBSD license — do not edit; keep copyright headers and the credit
-  line). Regenerate-with-feedback must keep skipping the catalog.
+  the head/how-to prose. Catalog URLs are hotlinks to https://csvistool.com
+  (verified frameable — recheck headers if it ever goes blank). Every catalog
+  entry becomes a "Curated" chip; `GENERATE_SUGGESTIONS` chips must stay
+  concepts the catalog does NOT cover, and the two rows stay visually
+  distinct. Regenerate-with-feedback must keep skipping the catalog.
 - **All AI traffic goes through `llmChat()`** (PART 6). Do not add calls to
   `kiwi.askAI` or the `contextualChat` op back; the token/scope machinery for
   them is gone.
@@ -99,9 +99,10 @@ admin whitelist -> app register -> enable in class
 Before finishing a change:
 
 - Standalone (`python3 -m http.server`, no host): a catalog concept
-  (`Binary Search Tree`, `红黑树`) mounts its premade page instantly with the
-  credit line, and an unlisted concept (`Sliding Window`) still generates
-  against the real API. "b+ tree" must hit `bplustree`, not `btree`.
+  (`Binary Search Tree`, `跳表`) mounts its csvistool page instantly with the
+  site chrome cropped away, and an unlisted concept (`Sliding Window`) still
+  generates against the real API. Every "Curated" chip must route to its own
+  catalog entry, and no "AI" chip may hit the catalog.
 - Every control changes both the visual and the status line; Reset always works.
 - The three blocks fill in independently: header text before the interactive,
   the how-to last, and a failed call (head, how-to or build) leaves no block

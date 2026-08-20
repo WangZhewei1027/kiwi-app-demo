@@ -44,27 +44,22 @@ origin, so any port works; nothing needs to be added to Kiwi's `FRONTEND_URL`.
 ## Retrieval first: the premade catalog
 
 Before generating anything, the app checks `premade/catalog.json` — a concept →
-URL index over hand-crafted visualizations from two sources:
-
-- **Hotlinked: the [CS1332 Visualization Tool](https://csvistool.com)**
-  (Georgia Tech's modern React remake of the Galles tool; GitHub Pages, no
-  `X-Frame-Options`/CSP, no frame-busting — verified embeddable). Preferred
-  wherever it covers a concept; needs network.
-- **Vendored: the Galles USF set** under `premade/galles/` (FreeBSD license,
-  source kept intact per its terms). Retained for what csvistool lacks —
-  red-black trees, tries, B/B+ trees, exotic heaps, topological sort, DP and
-  recursion pages — and it works offline.
+URL index over the **hotlinked [CS1332 Visualization Tool](https://csvistool.com)**
+(Georgia Tech's modern React remake of the Galles tool; GitHub Pages, no
+`X-Frame-Options`/CSP, no frame-busting — verified embeddable; needs network).
+Every catalog entry is also rendered as a "Curated" chip under the ask bar,
+next to a visually distinct "AI" chip row for concepts the catalog lacks.
 
 Matching is local and instant:
-aliases (English and Chinese) are normalized and matched longest-first, so
-"binary search tree" beats "binary search", and `+` survives normalization so
-"b+ tree" is not "b tree".
+aliases (English and Chinese, plus each entry's title) are normalized and
+matched longest-first, so "binary search tree" beats "binary search", and `+`
+survives normalization so "b+ tree" is not "b tree".
 
 - **Hit** → the curated page loads by URL into the stage iframe (fresh iframe,
-  `allow-scripts allow-same-origin` — these are vetted first-party files; a
-  credit line appears under the stage). Only the PAGE call is replaced: the
-  head and how-to prose are still LLM calls, personalized to what the learner
-  typed, and the how-to gets the catalog's curated control labels.
+  `allow-scripts allow-same-origin`), with the site's header/footer cropped
+  away and attribution logged to the console. Only the PAGE call is replaced:
+  the head and how-to prose are still LLM calls, personalized to what the
+  learner typed, and the how-to gets the catalog's curated control labels.
 - **Miss** → the existing generation pipeline runs unchanged.
 - **Regenerate-with-feedback always skips the catalog** — feedback means the
   learner explicitly wants a different page than the one that failed.
