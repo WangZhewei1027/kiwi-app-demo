@@ -21,14 +21,14 @@ python3 -m http.server 8000
 open http://localhost:8000/
 ```
 
-Nothing is embedding the page, so the SDK's **Simulator** answers locally and the
-whole flow still runs — type `Bubble Sort`, `Stack` or `Binary Search` and click
-through the result. Register it (see `explorable-app/README.md`) to run it
-against a real Kiwi class and a real model.
+Generation works immediately — the app calls the model API directly, so no
+Kiwi backend is needed. Type `Bubble Sort`, `Stack` or `Binary Search` and
+click through the result. Register it (see `explorable-app/README.md`) only if
+you want it embedded as a tab inside a real Kiwi class.
 
 ## What it is
 
-Type a concept; the app asks Kiwi's AI for a small interactive explanation and
+Type a concept; the app asks an AI model for a small interactive explanation and
 renders it in a sandboxed iframe. Bars you step through, a stack you push onto —
 the kind of page where the interaction *is* the explanation.
 
@@ -41,33 +41,22 @@ puts it first and makes it the build artifact: the model declares the state and
 the controls, then writes the actions that move between them. The interaction
 model is shown in the UI before the page exists.
 
-## What Kiwi actually allows
+## How it talks to the model
 
-The app is built around limits read out of the Kiwi source rather than guessed,
-because they decide what a generator can and cannot do here:
+AI calls go **directly** to an OpenAI-compatible LiteLLM endpoint
+(`AI_BASE_URL` / `AI_MODEL` in `index.html` PART 6), streamed as SSE. The Kiwi
+bridge carries only the embedding protocol (`kiwi:ready` / `kiwi:context` /
+`kiwi:updateContext`) — the old two-surface split between Kiwi's capped
+`kiwi:askAI` tutor agent and the uncapped `contextualChat` op is gone, along
+with the app token, the scope checks, and the prompt approval flow they
+required.
 
-- **`kiwi:askAI` is not a raw model.** It lands on `POST /student/chat/v2`, the
-  student tutor agent, which `agent-loop.service.ts` runs with
-  `maxTokensPerIteration: **1500**` under a *"guide students rather than giving
-  direct answers"* system prompt, with RAG and site-control tools attached. Asking
-  it for a whole interactive page is asking a tutor to do a job it is configured
-  to refuse and hasn't got the tokens for.
-- **`contextualChat` is.** `POST /api/kiwi-apps/:slug/contextual-chat` calls
-  `LlmService.createChat` with the app's *own* registered system prompt and
-  `prompt.maxTokens ?? undefined` — so a prompt registered **without** `maxTokens`
-  sends no `max_completion_tokens` and is not cut off. `outputSchema` compiles to
-  a strict `json_schema`, making the reply a guaranteed-valid instance.
-- **The model is a reasoning model** (`gpt-5.x`), so token caps are consumed by
-  thinking before any output appears, and `temperature` is ignored entirely.
+Each run is three calls: the complete page (raw HTML, streamed, with the app's
+own system prompt), plus a title/concept call fired in parallel and a how-to
+call once the controls exist. Output is uncapped; the app enforces its own
+120-second abort and a character budget in the prompt for latency.
 
-So the app registers an admin-approved prompt with no `maxTokens`, checks its
-token scopes at startup, and takes the uncapped structured route when it can.
-When it can't, it splits the job into three calls sized for 1500 tokens — plan,
-then logic and view **in parallel** — instead of one that gets truncated. Either
-way the model fills three slots in a runtime that already exists, so the wiring
-is never the thing that breaks.
-
-The full table, and what happens when an answer is broken anyway, is in
+The full pipeline, and what happens when an answer is broken anyway, is in
 `explorable-app/README.md`.
 
 ## Relationship to the reference workspace
