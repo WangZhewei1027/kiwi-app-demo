@@ -41,214 +41,528 @@
     See ../README.md and ../AGENTS.md.
   -->
     <style>
-    :root {
-      --bg:#f7f8fa; --card:#ffffff; --line:#e6e9ef; --line2:#eef1f5;
-      --txt:#17202e; --muted:#5f6b7a; --faint:#96a0ae;
-      --acc:#1f9d76; --acc-d:#17805f; --acc-bg:#e9f7f1;
-      --blue:#2f6bff; --blue-bg:#eaf0ff;
-      --amber:#a06a1d; --amber-bg:#fff6e8; --amber-line:#f0ddba;
-      --red:#c94040; --red-bg:#fdefef; --red-line:#f2d2d2;
-      --sim:#6d51e8; --sim-bg:#f1edff; --sim-line:#ded4ff;
-      --radius:14px;
-      --shadow:0 1px 2px rgba(16,24,40,.05), 0 6px 24px -12px rgba(16,24,40,.10);
-    }
-    * { box-sizing:border-box; }
-    html, body { height:100%; }
-    body {
-      margin:0; background:var(--bg); color:var(--txt);
-      font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
-      -webkit-font-smoothing:antialiased;
-    }
-    a { color:var(--acc-d); }
+      :root {
+        --bg: #f7f8fa;
+        --card: #ffffff;
+        --line: #e6e9ef;
+        --line2: #eef1f5;
+        --txt: #17202e;
+        --muted: #5f6b7a;
+        --faint: #96a0ae;
+        --acc: #1f9d76;
+        --acc-d: #17805f;
+        --acc-bg: #e9f7f1;
+        --blue: #2f6bff;
+        --blue-bg: #eaf0ff;
+        --amber: #a06a1d;
+        --amber-bg: #fff6e8;
+        --amber-line: #f0ddba;
+        --red: #c94040;
+        --red-bg: #fdefef;
+        --red-line: #f2d2d2;
+        --sim: #6d51e8;
+        --sim-bg: #f1edff;
+        --sim-line: #ded4ff;
+        --radius: 14px;
+        --shadow:
+          0 1px 2px rgba(16, 24, 40, 0.05),
+          0 6px 24px -12px rgba(16, 24, 40, 0.1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--txt);
+        font:
+          15px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--acc-d);
+      }
 
-    /* ---------- Shell ----------
+      /* ---------- Shell ----------
        A column that always fills its frame. Embedded in Kiwi the app gets a
        viewport-tall iframe (calc(100vh - 104px)) while the landing state is only
        ~350px of content, so a plain top-aligned block left two thirds of the tab
        as dead grey. Filling the frame and letting the auto margins below place
        the two ends turns that gap into layout instead of emptiness. */
-    .shell {
-      max-width:780px; margin:0 auto; padding:24px 20px 56px;
-      min-height:100%; display:flex; flex-direction:column;
-    }
+      .shell {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 24px 20px 56px;
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
 
-    /* ---------- Ask bar ---------- */
-    .ask { margin:0; }
-    /* Nothing has been asked yet, so the ask bar IS the page: this auto margin
+      /* ---------- Ask bar ---------- */
+      .ask {
+        margin: 0;
+      }
+      /* Nothing has been asked yet, so the ask bar IS the page: this auto margin
        and the footer's split the free space between them and centre it. Dropped
        the moment a build starts, which pins the bar back to the top where it
        belongs once there is a result under it. */
-    .shell.idle .ask { margin-top:auto; }
-    .askbar {
-      display:flex; align-items:center; gap:8px; background:var(--card);
-      border:1px solid var(--line); border-radius:999px; padding:6px 6px 6px 20px;
-      box-shadow:var(--shadow); transition:border-color .15s, box-shadow .15s;
-    }
-    .askbar:focus-within { border-color:var(--acc); box-shadow:0 0 0 4px var(--acc-bg), var(--shadow); }
-    .askbar input {
-      flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--txt);
-      font:inherit; font-size:15.5px; padding:8px 0;
-    }
-    .askbar input::placeholder { color:var(--faint); }
-    .askbar button {
-      flex:none; border:0; border-radius:999px; background:var(--acc); color:#fff;
-      font:inherit; font-size:14px; font-weight:600; padding:10px 22px; cursor:pointer;
-      transition:background .15s, opacity .15s;
-    }
-    .askbar button:hover:not(:disabled) { background:var(--acc-d); }
-    .askbar button:disabled { opacity:.55; cursor:default; }
+      .shell.idle .ask {
+        margin-top: auto;
+      }
+      .askbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 6px 6px 20px;
+        box-shadow: var(--shadow);
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .askbar:focus-within {
+        border-color: var(--acc);
+        box-shadow:
+          0 0 0 4px var(--acc-bg),
+          var(--shadow);
+      }
+      .askbar input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--txt);
+        font: inherit;
+        font-size: 15.5px;
+        padding: 8px 0;
+      }
+      .askbar input::placeholder {
+        color: var(--faint);
+      }
+      .askbar button {
+        flex: none;
+        border: 0;
+        border-radius: 999px;
+        background: var(--acc);
+        color: #fff;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 10px 22px;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          opacity 0.15s;
+      }
+      .askbar button:hover:not(:disabled) {
+        background: var(--acc-d);
+      }
+      .askbar button:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
 
-    .chips { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:16px; }
-    .chips .c {
-      font:inherit; font-size:12.5px; padding:5px 13px; border-radius:999px; border:1px solid var(--line);
-      background:var(--card); color:var(--muted); cursor:pointer; user-select:none;
-      transition:.12s;
-    }
-    .chips .c:hover { border-color:var(--acc); color:var(--acc-d); background:#fff; }
-    .chips .c:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .chips .c {
+        font: inherit;
+        font-size: 12.5px;
+        padding: 5px 13px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+        transition: 0.12s;
+      }
+      .chips .c:hover {
+        border-color: var(--acc);
+        color: var(--acc-d);
+        background: #fff;
+      }
+      .chips .c:focus-visible {
+        outline: 2px solid var(--acc);
+        outline-offset: 2px;
+      }
 
-    /* ---------- Progress ---------- */
-    .progress {
-      display:none; margin:26px 0 0; background:var(--card); border:1px solid var(--line);
-      border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 20px;
-      align-items:center; gap:14px;
-    }
-    .progress.show { display:flex; }
-    .spinner {
-      width:20px; height:20px; flex:none; border-radius:50%;
-      border:2.5px solid var(--acc-bg); border-top-color:var(--acc);
-      animation:spin .7s linear infinite;
-    }
-    .progress.err .spinner { animation:none; border-color:var(--red-bg); border-top-color:var(--red); }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .ptext { flex:1; min-width:0; }
-    .ptext b { display:block; font-size:14px; font-weight:600; }
-    .ptext span { display:block; font-size:12px; color:var(--faint); margin-top:1px; }
-    .pdots { display:flex; gap:6px; flex:none; }
-    .pdots i {
-      width:8px; height:8px; border-radius:50%; background:var(--line);
-      transition:background .2s, transform .2s;
-    }
-    .pdots i.run { background:var(--acc); transform:scale(1.25); animation:pulse 1.1s ease-in-out infinite; }
-    .pdots i.done { background:var(--acc); }
-    .pdots i.fail { background:var(--red); }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+      /* ---------- Progress ---------- */
+      .progress {
+        display: none;
+        margin: 26px 0 0;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px 20px;
+        align-items: center;
+        gap: 14px;
+      }
+      .progress.show {
+        display: flex;
+      }
+      .spinner {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        border-radius: 50%;
+        border: 2.5px solid var(--acc-bg);
+        border-top-color: var(--acc);
+        animation: spin 0.7s linear infinite;
+      }
+      .progress.err .spinner {
+        animation: none;
+        border-color: var(--red-bg);
+        border-top-color: var(--red);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .ptext {
+        flex: 1;
+        min-width: 0;
+      }
+      .ptext b {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .ptext span {
+        display: block;
+        font-size: 12px;
+        color: var(--faint);
+        margin-top: 1px;
+      }
+      .pdots {
+        display: flex;
+        gap: 6px;
+        flex: none;
+      }
+      .pdots i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--line);
+        transition:
+          background 0.2s,
+          transform 0.2s;
+      }
+      .pdots i.run {
+        background: var(--acc);
+        transform: scale(1.25);
+        animation: pulse 1.1s ease-in-out infinite;
+      }
+      .pdots i.done {
+        background: var(--acc);
+      }
+      .pdots i.fail {
+        background: var(--red);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
 
-    /* ---------- Result ---------- */
-    .result { display:none; margin:28px 0 0; }
-    .result.show { display:block; animation:rise .28s ease; }
-    @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
-    .rhead { margin:0 2px 12px; }
-    .rhead h2 { margin:0; font-size:20px; letter-spacing:-.015em; }
-    .rhead p { margin:2px 0 0; color:var(--muted); font-size:13.5px; }
+      /* ---------- Result ---------- */
+      .result {
+        display: none;
+        margin: 28px 0 0;
+      }
+      .result.show {
+        display: block;
+        animation: rise 0.28s ease;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .rhead {
+        margin: 0 2px 12px;
+      }
+      .rhead h2 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: -0.015em;
+      }
+      .rhead p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13.5px;
+      }
 
-    .stage {
-      position:relative;
-      border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
-      background:#fff; box-shadow:var(--shadow);
-    }
-    /* Premade pages (csvistool, Galles) are laid out for a ~1000px canvas, so
+      .stage {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: #fff;
+        box-shadow: var(--shadow);
+      }
+      /* Premade pages (csvistool, Galles) are laid out for a ~1000px canvas, so
        the stage breaks out of the 780px text column to full-bleed width while
        the prose stays narrow. width uses 100% (not 100vw) as its floor so a
        narrow viewport never overflows; the negative-margin split keeps it
        centred because .shell itself is centred. */
-    .stage.wide {
-      --sw:max(100%, min(1200px, 100vw - 48px));   /* never narrower than the column */
-      width:var(--sw);
-      margin-left:calc((100% - var(--sw)) / 2);
-    }
-    .stage iframe { display:block; width:100%; height:520px; border:0; background:#fff; }
-    .stage .credit {
-      font-size:11.5px; color:var(--faint); text-align:right;
-      padding:5px 10px 6px; border-top:1px solid var(--line2); background:#fbfcfe;
-    }
-
-    /* Replay acts on the stage, so it lives ON the stage — corner-pinned rather
+      .stage.wide {
+        --sw: max(
+          100%,
+          min(1200px, 100vw - 48px)
+        ); /* never narrower than the column */
+        width: var(--sw);
+        margin-left: calc((100% - var(--sw)) / 2);
+      }
+      .stage iframe {
+        display: block;
+        width: 100%;
+        height: 520px;
+        border: 0;
+        background: #fff;
+      }
+      /* Replay acts on the stage, so it lives ON the stage — corner-pinned rather
        than parked in the header, where it sat at the mercy of however many lines
        the concept paragraph happened to run to. Faint until the panel is
        hovered: it is a recovery control, not part of the explanation. The page's
        own controls are a top-LEFT row by contract (PAGE_RULES), so the top-right
        corner is the one spot that reliably stays clear of them. */
-    .replay {
-      position:absolute; top:10px; right:10px; z-index:2;
-      width:30px; height:30px; padding:0; display:grid; place-items:center;
-      background:rgba(255,255,255,.88); border:1px solid var(--line); border-radius:9px;
-      color:var(--muted); cursor:pointer; opacity:.5; transition:.14s;
-    }
-    .stage:hover .replay { opacity:1; }
-    .replay:hover { border-color:var(--acc); color:var(--acc-d); }
-    .replay:focus-visible { opacity:1; outline:2px solid var(--acc); outline-offset:1px; }
-    .replay svg { display:block; width:15px; height:15px; }
+      .replay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--muted);
+        cursor: pointer;
+        opacity: 0.5;
+        transition: 0.14s;
+      }
+      .stage:hover .replay {
+        opacity: 1;
+      }
+      .replay:hover {
+        border-color: var(--acc);
+        color: var(--acc-d);
+      }
+      .replay:focus-visible {
+        opacity: 1;
+        outline: 2px solid var(--acc);
+        outline-offset: 1px;
+      }
+      .replay svg {
+        display: block;
+        width: 15px;
+        height: 15px;
+      }
 
-    .trybox { margin-top:16px; background:var(--card); border:1px solid var(--line);
-              border-radius:var(--radius); padding:14px 18px; }
-    .trybox h5 { margin:0 0 6px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
-    .trybox p { margin:0; color:var(--muted); font-size:13.5px; }
+      .trybox {
+        margin-top: 16px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+      }
+      .trybox h5 {
+        margin: 0 0 6px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .trybox p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13.5px;
+      }
 
-    /* ---------- Skeletons ----------
+      /* ---------- Skeletons ----------
        Up the moment Explore is pressed. Three of them, because there are three
        independently-timed pieces: the header (its own small call, fired in
        parallel with the build, so it lands first), the interactive, and the
        how-to (needs the finished controls, so it lands last). */
-    .sk { display:none; }
-    .sk.show { display:block; }
-    .sk > span {
-      display:block; margin:0 0 9px; border-radius:6px; background:var(--line);
-      position:relative; overflow:hidden;
-    }
-    .sk > span:last-child { margin-bottom:0; }
-    .sk > span::after {
-      content:""; position:absolute; inset:0; transform:translateX(-100%);
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent);
-      animation:shimmer 1.4s ease-in-out infinite;
-    }
-    @keyframes shimmer { to { transform:translateX(100%); } }
-    .sk-stage { height:520px; }
-    .sk-stage > span { height:100%; margin:0; border-radius:0; }
+      .sk {
+        display: none;
+      }
+      .sk.show {
+        display: block;
+      }
+      .sk > span {
+        display: block;
+        margin: 0 0 9px;
+        border-radius: 6px;
+        background: var(--line);
+        position: relative;
+        overflow: hidden;
+      }
+      .sk > span:last-child {
+        margin-bottom: 0;
+      }
+      .sk > span::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.7),
+          transparent
+        );
+        animation: shimmer 1.4s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        to {
+          transform: translateX(100%);
+        }
+      }
+      .sk-stage {
+        height: 520px;
+      }
+      .sk-stage > span {
+        height: 100%;
+        margin: 0;
+        border-radius: 0;
+      }
 
-    .warn {
-      display:none; margin-top:14px; font-size:13px; background:var(--amber-bg); color:var(--amber);
-      border:1px solid var(--amber-line); border-radius:10px; padding:10px 14px;
-    }
-    .warn.show { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .warn .grow { flex:1; min-width:200px; }
-    .warn button {
-      background:#fff; color:var(--amber); border:1px solid var(--amber-line); border-radius:8px;
-      padding:5px 12px; cursor:pointer; font:inherit; font-size:12.5px; font-weight:600;
-    }
-    .warn button:disabled { opacity:.5; cursor:default; }
+      .warn {
+        display: none;
+        margin-top: 14px;
+        font-size: 13px;
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid var(--amber-line);
+        border-radius: 10px;
+        padding: 10px 14px;
+      }
+      .warn.show {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .warn .grow {
+        flex: 1;
+        min-width: 200px;
+      }
+      .warn button {
+        background: #fff;
+        color: var(--amber);
+        border: 1px solid var(--amber-line);
+        border-radius: 8px;
+        padding: 5px 12px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .warn button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
 
-    /* ---------- Footer ---------- */
-    /* auto, not 40px: the footer sits at the bottom of the frame whenever there
+      /* ---------- Footer ---------- */
+      /* auto, not 40px: the footer sits at the bottom of the frame whenever there
        is room to spare, instead of floating under short content with grey below
        it. The 40px survives as padding, so a full page still keeps its gap. */
-    .foot {
-      margin-top:auto; padding-top:40px; text-align:center; font-size:11.5px; color:var(--faint);
-      display:flex; align-items:center; justify-content:center; gap:7px;
-    }
-    .foot .dot { width:7px; height:7px; border-radius:50%; background:var(--line); flex:none; }
-    .foot.good .dot { background:var(--acc); }
-    .foot.capped .dot { background:#d8a437; }
-    .footsim {
-      display:none; font-size:10.5px; font-weight:600; color:var(--sim);
-      background:var(--sim-bg); border:1px solid var(--sim-line); border-radius:999px;
-      padding:1px 9px; white-space:nowrap;
-    }
-    .footsim.show { display:inline-block; }
+      .foot {
+        margin-top: auto;
+        padding-top: 40px;
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--faint);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+      }
+      .foot .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--line);
+        flex: none;
+      }
+      .foot.good .dot {
+        background: var(--acc);
+      }
+      .foot.capped .dot {
+        background: #d8a437;
+      }
+      .footsim {
+        display: none;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--sim);
+        background: var(--sim-bg);
+        border: 1px solid var(--sim-line);
+        border-radius: 999px;
+        padding: 1px 9px;
+        white-space: nowrap;
+      }
+      .footsim.show {
+        display: inline-block;
+      }
 
-    @media (max-width:560px) {
-      .rhead { flex-direction:column; align-items:stretch; gap:8px; }
-      .stage iframe { height:440px; }
-      .sk-stage { height:440px; }
-    }
-  </style>
+      @media (max-width: 560px) {
+        .rhead {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+        .stage iframe {
+          height: 440px;
+        }
+        .sk-stage {
+          height: 440px;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="shell idle" id="shell">
       <section class="ask">
         <div class="askbar">
-          <input id="concept" placeholder="Try “Binary Search Tree” or “Dijkstra's Algorithm”…"
-                 autocomplete="off" enterkeyhint="go" />
+          <input
+            id="concept"
+            placeholder="Try “Binary Search Tree” or “Dijkstra's Algorithm”…"
+            autocomplete="off"
+            enterkeyhint="go"
+          />
           <button id="go">Explore</button>
         </div>
         <div class="chips" id="chips"></div>
@@ -256,7 +570,9 @@
 
       <div class="progress" id="progress">
         <span class="spinner"></span>
-        <span class="ptext"><b id="ptitle">Working…</b><span id="psub"></span></span>
+        <span class="ptext"
+          ><b id="ptitle">Working…</b><span id="psub"></span
+        ></span>
         <span class="pdots" id="pdots"></span>
       </div>
 
@@ -265,28 +581,45 @@
           <h2 id="r_title">Explanation</h2>
           <p id="r_sub"></p>
           <div class="sk" id="sk_head">
-            <span style="width:38%;height:20px"></span>
-            <span style="width:84%;height:13px"></span>
+            <span style="width: 38%; height: 20px"></span>
+            <span style="width: 84%; height: 13px"></span>
           </div>
         </div>
         <div class="stage" id="stage">
-          <button class="replay" id="r_replay" type="button" style="display:none"
-                  title="Replay — put the interactive back to its starting state" aria-label="Replay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>
+          <button
+            class="replay"
+            id="r_replay"
+            type="button"
+            style="display: none"
+            title="Replay — put the interactive back to its starting state"
+            aria-label="Replay"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
             </svg>
           </button>
           <div class="sk sk-stage" id="sk_stage"><span></span></div>
-          <iframe id="frame" sandbox="allow-scripts" title="Interactive explanation"></iframe>
-          <div class="credit" id="credit" style="display:none"></div>
+          <iframe
+            id="frame"
+            sandbox="allow-scripts"
+            title="Interactive explanation"
+          ></iframe>
         </div>
-        <div class="trybox" id="howtobox" style="display:none">
+        <div class="trybox" id="howtobox" style="display: none">
           <h5>How to explore</h5>
           <p id="howto"></p>
           <div class="sk" id="sk_howto">
-            <span style="width:94%;height:13px"></span>
-            <span style="width:61%;height:13px"></span>
+            <span style="width: 94%; height: 13px"></span>
+            <span style="width: 61%; height: 13px"></span>
           </div>
         </div>
         <div class="warn" id="warn">
@@ -295,8 +628,15 @@
         </div>
       </section>
 
-      <div class="foot" id="foot"><span class="dot"></span><span id="foot_txt">Connecting…</span><span
-        class="footsim" id="foot_sim" title="No Kiwi host detected — the app runs standalone; AI calls still go directly to the model API.">Standalone</span></div>
+      <div class="foot" id="foot">
+        <span class="dot"></span><span id="foot_txt">Connecting…</span
+        ><span
+          class="footsim"
+          id="foot_sim"
+          title="No Kiwi host detected — the app runs standalone; AI calls still go directly to the model API."
+          >Standalone</span
+        >
+      </div>
     </div>
 
     <script src="./kiwi-app-sdk/kiwi-app-sdk.js"></script>
@@ -330,15 +670,15 @@
       /* The system message of the page call. (This used to be the registered
          `explorable-build` prompt; now it is sent directly with every call.) */
       const SYSTEM_PROMPT =
-        'You are the generator behind Kiwi\'s Explorable Explanations app. Given a ' +
-        'computer-science concept you produce a complete, self-contained ' +
-        'interactive web page that teaches it: controls the learner presses, a ' +
-        'picture that changes, and a status line that explains every step in one ' +
-        'plain sentence. You write one HTML document with all CSS and JavaScript ' +
-        'inline, no external resources, no libraries. You are not tutoring and ' +
-        'not chatting: emit only the requested artifact. Favour one clear idea ' +
-        'made visible over a feature list, and make every action explain itself ' +
-        'in one sentence a learner would understand.';
+        "You are the generator behind Kiwi's Explorable Explanations app. Given a " +
+        "computer-science concept you produce a complete, self-contained " +
+        "interactive web page that teaches it: controls the learner presses, a " +
+        "picture that changes, and a status line that explains every step in one " +
+        "plain sentence. You write one HTML document with all CSS and JavaScript " +
+        "inline, no external resources, no libraries. You are not tutoring and " +
+        "not chatting: emit only the requested artifact. Favour one clear idea " +
+        "made visible over a feature list, and make every action explain itself " +
+        "in one sentence a learner would understand.";
 
       /* The page contract — the user message of the page call.
 
@@ -352,62 +692,70 @@
          banned. A smaller page is not a compromise here; it is the only kind
          that reliably lands. */
       const PAGE_RULES = [
-        'Produce ONE complete, self-contained HTML document.',
-        '',
-        'BUDGET — this matters more than polish:',
-        '  - the whole document must be UNDER 6000 CHARACTERS. Count as you write.',
-        '  - ONE interaction, at most five controls, one picture.',
-        '  - you have 120 seconds including your own thinking, and the host throws',
-        '    away a page that arrives late. Do not weigh design alternatives: take',
-        '    the obvious representation and write it out.',
-        '',
-        'STRUCTURE — use exactly this skeleton, do not invent another:',
+        "Produce ONE complete, self-contained HTML document.",
+        "",
+        "BUDGET — this matters more than polish:",
+        "  - the whole document must be UNDER 6000 CHARACTERS. Count as you write.",
+        "  - ONE interaction, at most five controls, one picture.",
+        "  - you have 120 seconds including your own thinking, and the host throws",
+        "    away a page that arrives late. Do not weigh design alternatives: take",
+        "    the obvious representation and write it out.",
+        "",
+        "STRUCTURE — use exactly this skeleton, do not invent another:",
         '  <div id="controls">  the buttons (and at most one slider)',
         '  <div id="viz">       the picture',
         '  <div id="status">    one sentence of plain text',
-        '',
-        'RULES:',
-        '  - starts with <!doctype html>; ALL CSS and JavaScript inline; no external',
-        '    URLs, no libraries, no fonts or images fetched from anywhere',
+        "",
+        "RULES:",
+        "  - starts with <!doctype html>; ALL CSS and JavaScript inline; no external",
+        "    URLs, no libraries, no fonts or images fetched from anywhere",
         '  - it runs inside <iframe sandbox="allow-scripts">: localStorage,',
-        '    sessionStorage and cookies THROW there — do not touch them. No',
-        '    alert/confirm/prompt, no fetch, no navigation.',
-        '  - build the picture from plain styled <div>s. No SVG, no <canvas>, no',
-        '    icons, no images. Reach for inline SVG only if the picture is truly',
-        '    impossible as boxes.',
-        '  - ONE <style> block, at most ~25 rules. White background, system font',
-        '    stack, one accent colour, rounded corners. No CSS variables, no media',
-        '    queries, no gradients, no keyframes; at most one colour or size',
-        '    transition.',
-        '  - ONE <script> block of plain procedural JavaScript: a state object, a',
-        '    render() function, and one handler per control. No classes, no',
-        '    modules, no helper layers, no try/catch, no defensive checks — the',
-        '    page has no input it does not control.',
-        '  - write NO code comments and no blank-line padding. Every character is',
-        '    spent on the page.',
-        '  - every control press changes the picture AND writes one plain sentence',
-        '    to #status saying what just happened and why — that sentence is the',
-        '    teaching, not decoration.',
-        '  - include a Reset button that restores the initial state. Any run/play',
-        '    loop must stop itself when the process finishes.',
-        '  - seed real data so the page is never empty, and make the starting view',
-        '    already show it.',
-        '  - do NOT put a title heading or a paragraph explaining the concept',
-        '    inside the page. That prose is produced by a separate call and shown',
-        '    OUTSIDE the iframe. The page holds only the controls, the picture,',
-        '    and the status line.',
-        '  - emit RAW HTML. Never HTML-entity-escape your own markup: write',
+        "    sessionStorage and cookies THROW there — do not touch them. No",
+        "    alert/confirm/prompt, no fetch, no navigation.",
+        "  - build the picture from plain styled <div>s. No SVG, no <canvas>, no",
+        "    icons, no images. Reach for inline SVG only if the picture is truly",
+        "    impossible as boxes.",
+        "  - ONE <style> block, at most ~25 rules. White background, system font",
+        "    stack, one accent colour, rounded corners. No CSS variables, no media",
+        "    queries, no gradients, no keyframes; at most one colour or size",
+        "    transition.",
+        "  - ONE <script> block of plain procedural JavaScript: a state object, a",
+        "    render() function, and one handler per control. No classes, no",
+        "    modules, no helper layers, no try/catch, no defensive checks — the",
+        "    page has no input it does not control.",
+        "  - write NO code comments and no blank-line padding. Every character is",
+        "    spent on the page.",
+        "  - every control press changes the picture AND writes one plain sentence",
+        "    to #status saying what just happened and why — that sentence is the",
+        "    teaching, not decoration.",
+        "  - include a Reset button that restores the initial state. Any run/play",
+        "    loop must stop itself when the process finishes.",
+        "  - seed real data so the page is never empty, and make the starting view",
+        "    already show it.",
+        "  - do NOT put a title heading or a paragraph explaining the concept",
+        "    inside the page. That prose is produced by a separate call and shown",
+        "    OUTSIDE the iframe. The page holds only the controls, the picture,",
+        "    and the status line.",
+        "  - emit RAW HTML. Never HTML-entity-escape your own markup: write",
         '    id="viz", not id=&quot;viz&quot;. Prefer single quotes in inline',
-        '    JavaScript strings.',
-      ].join('\n');
+        "    JavaScript strings.",
+      ].join("\n");
 
       function conceptLine(concept) {
-        return 'Concept: "' + concept + '". Write the UI text in the same language as the concept.';
+        return (
+          'Concept: "' +
+          concept +
+          '". Write the UI text in the same language as the concept.'
+        );
       }
 
       function controlsSummary(controls) {
-        return (Array.isArray(controls) ? controls : []).map(String).filter(Boolean).join(', ')
-          || 'the controls on the page';
+        return (
+          (Array.isArray(controls) ? controls : [])
+            .map(String)
+            .filter(Boolean)
+            .join(", ") || "the controls on the page"
+        );
       }
 
       /* What the learner reads when the writer call fails: honest, generic,
@@ -415,8 +763,9 @@
       function defaultText(concept) {
         return {
           title: concept,
-          concept: '',
-          howto: 'Use the controls above and read the line under the picture after every press — it says what just happened and why.',
+          concept: "",
+          howto:
+            "Use the controls above and read the line under the picture after every press — it says what just happened and why.",
         };
       }
 
@@ -425,9 +774,10 @@
          pipeline's whole repair story. */
       function feedbackLine(feedback) {
         return feedback
-          ? '\nA previous attempt at this page failed with: ' + String(feedback).slice(0, 300) +
-            '\nAvoid that mistake this time.\n'
-          : '';
+          ? "\nA previous attempt at this page failed with: " +
+              String(feedback).slice(0, 300) +
+              "\nAvoid that mistake this time.\n"
+          : "";
       }
 
       /* --- the head call: title + concept, fired WITH the build ------------ */
@@ -436,60 +786,60 @@
          this brief needs them it can no longer run in parallel with the build,
          which is the whole point of splitting it out. */
       const HEAD_BRIEF = [
-        'Write the two text parts shown ABOVE the interactive panel:',
-        '  title   — a short display title, a few words',
-        '  concept — 2-3 plain-language sentences explaining the concept itself,',
-        '            not the panel and not its controls',
-        'No markdown, no headings, no code.',
-      ].join('\n');
+        "Write the two text parts shown ABOVE the interactive panel:",
+        "  title   — a short display title, a few words",
+        "  concept — 2-3 plain-language sentences explaining the concept itself,",
+        "            not the panel and not its controls",
+        "No markdown, no headings, no code.",
+      ].join("\n");
 
       function headPrompt(concept) {
         return [
           ASK_PREAMBLE,
-          '',
+          "",
           conceptLine(concept),
-          '',
+          "",
           HEAD_BRIEF,
-          '',
-          'Reply with ONLY this JSON object, nothing else:',
+          "",
+          "Reply with ONLY this JSON object, nothing else:",
           '{"title":"","concept":""}',
-        ].join('\n');
+        ].join("\n");
       }
 
       /* --- the how-to call: needs the finished controls -------------------- */
 
       function howtoBrief(plan) {
         return [
-          'An interactive explanation of this concept has just been built. Its controls:',
-          '  ' + controlsSummary(plan.controls),
-          plan.summary ? 'What it shows: ' + plan.summary : '',
-          '',
-          'Write the how-to line shown UNDER that panel:',
-          '  howto — 2-3 sentences telling the learner what to press and what to',
-          '          watch, using the control labels above',
-          'No markdown, no headings, no code.',
-        ].join('\n');
+          "An interactive explanation of this concept has just been built. Its controls:",
+          "  " + controlsSummary(plan.controls),
+          plan.summary ? "What it shows: " + plan.summary : "",
+          "",
+          "Write the how-to line shown UNDER that panel:",
+          "  howto — 2-3 sentences telling the learner what to press and what to",
+          "          watch, using the control labels above",
+          "No markdown, no headings, no code.",
+        ].join("\n");
       }
 
       function howtoPrompt(concept, plan) {
         return [
           ASK_PREAMBLE,
-          '',
+          "",
           conceptLine(concept),
-          '',
+          "",
           howtoBrief(plan),
-          '',
-          'Reply with ONLY this JSON object, nothing else:',
+          "",
+          "Reply with ONLY this JSON object, nothing else:",
           '{"howto":""}',
-        ].join('\n');
+        ].join("\n");
       }
 
       /* --- shared preamble: all three calls are machine requests ----------- */
 
       const ASK_PREAMBLE =
-        'This is a machine request from the Explorable Explanations app UI, not a ' +
-        'student asking for help. Do not tutor, do not explain your answer, do not ' +
-        'use markdown fences. Emit only the requested artifact.';
+        "This is a machine request from the Explorable Explanations app UI, not a " +
+        "student asking for help. Do not tutor, do not explain your answer, do not " +
+        "use markdown fences. Emit only the requested artifact.";
 
       /* The page call: raw HTML back. Raw HTML beats JSON-wrapped HTML here —
          no escaping to get wrong, and a truncated reply still renders
@@ -498,17 +848,17 @@
       function pagePrompt(concept, feedback) {
         return [
           ASK_PREAMBLE,
-          '',
+          "",
           conceptLine(concept),
-          'Build a small interactive explanation of it as a complete web page.',
-          'Pick the ONE thing about this concept that is best understood by doing',
-          'rather than reading, and make that the interaction.',
-          '',
+          "Build a small interactive explanation of it as a complete web page.",
+          "Pick the ONE thing about this concept that is best understood by doing",
+          "rather than reading, and make that the interaction.",
+          "",
           PAGE_RULES,
           feedbackLine(feedback),
-          'Reply with ONLY the HTML document, starting with <!doctype html>.',
-          'No fences, no JSON, no commentary.',
-        ].join('\n');
+          "Reply with ONLY the HTML document, starting with <!doctype html>.",
+          "No fences, no JSON, no commentary.",
+        ].join("\n");
       }
 
       /* =====================================================================
@@ -516,29 +866,40 @@
          ===================================================================== */
 
       function parseJSONLoose(text) {
-        let s = String(text || '').trim();
-        s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-        const first = s.indexOf('{');
+        let s = String(text || "").trim();
+        s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+        const first = s.indexOf("{");
         if (first === -1) return null;
         s = s.slice(first);
-        const last = s.lastIndexOf('}');
+        const last = s.lastIndexOf("}");
         const candidate = last > 0 ? s.slice(0, last + 1) : s;
-        for (const attempt of [candidate, repairJSON(candidate), repairJSON(s)]) {
-          try { const o = JSON.parse(attempt); if (o && typeof o === 'object') return o; } catch (e) { /* next */ }
+        for (const attempt of [
+          candidate,
+          repairJSON(candidate),
+          repairJSON(s),
+        ]) {
+          try {
+            const o = JSON.parse(attempt);
+            if (o && typeof o === "object") return o;
+          } catch (e) {
+            /* next */
+          }
         }
         return null;
       }
 
       function repairJSON(s) {
         let f = String(s);
-        f = f.replace(/,(\s*[}\]])/g, '$1');
-        f = f.replace(/[\u0000-\u001F\u007F]/g, ' ');
+        f = f.replace(/,(\s*[}\]])/g, "$1");
+        f = f.replace(/[\u0000-\u001F\u007F]/g, " ");
         if ((f.match(/"/g) || []).length % 2 !== 0) f += '"';
-        f = f.replace(/,\s*$/, '');
-        const brackets = (f.match(/\[/g) || []).length - (f.match(/\]/g) || []).length;
-        const braces = (f.match(/\{/g) || []).length - (f.match(/\}/g) || []).length;
-        for (let i = 0; i < brackets; i++) f += ']';
-        for (let i = 0; i < braces; i++) f += '}';
+        f = f.replace(/,\s*$/, "");
+        const brackets =
+          (f.match(/\[/g) || []).length - (f.match(/\]/g) || []).length;
+        const braces =
+          (f.match(/\{/g) || []).length - (f.match(/\}/g) || []).length;
+        for (let i = 0; i < brackets; i++) f += "]";
+        for (let i = 0; i < braces; i++) f += "}";
         return f;
       }
 
@@ -550,9 +911,12 @@
         const seen = {};
         const re = /<button\b[^>]*>([^<>]{1,32})<\/button>/gi;
         let m;
-        while ((m = re.exec(String(html || ''))) && out.length < 8) {
-          const t = m[1].replace(/\s+/g, ' ').trim();
-          if (t && !seen[t.toLowerCase()]) { seen[t.toLowerCase()] = 1; out.push(t); }
+        while ((m = re.exec(String(html || ""))) && out.length < 8) {
+          const t = m[1].replace(/\s+/g, " ").trim();
+          if (t && !seen[t.toLowerCase()]) {
+            seen[t.toLowerCase()] = 1;
+            out.push(t);
+          }
         }
         return out;
       }
@@ -565,7 +929,7 @@
          before </body>, so the outer page can size the frame and offer a
          regenerate-with-feedback when the generated code throws. */
 
-      const NONCE = 'ee-' + Math.random().toString(36).slice(2, 9);
+      const NONCE = "ee-" + Math.random().toString(36).slice(2, 9);
 
       /* Built with split tags: a literal closing script tag inside this outer
          <script> block would terminate IT, not the string. */
@@ -574,8 +938,10 @@
          execution fires before the listener exists and the page dies blank
          with no report — exactly the failure this script exists to surface. */
       const REPORT_JS = [
-        '<' + 'script>',
-        '(function(){var p=function(k,d){try{parent.postMessage({__ee:"' + NONCE + '",kind:k,data:d},"*")}catch(e){}};',
+        "<" + "script>",
+        '(function(){var p=function(k,d){try{parent.postMessage({__ee:"' +
+          NONCE +
+          '",kind:k,data:d},"*")}catch(e){}};',
         'window.addEventListener("error",function(e){p("error",String((e&&(e.message||e.error))||"script error"))});',
         'window.addEventListener("unhandledrejection",function(e){p("error",String(e.reason))});',
         /* Measures the bottom-most element, NOT scrollHeight. scrollHeight is
@@ -585,16 +951,16 @@
            shorter than the frame ratcheted 520 → 542 → … → the 820 clamp in
            about eight seconds, leaving a few hundred pixels of white under the
            content. Element bottoms are the real extent and can shrink. */
-        'var h=0,send=function(){var b=document.body;if(!b)return;var n=0,c=b.children,i,r,y=window.pageYOffset||0;',
-        'for(i=0;i<c.length;i++){r=c[i].getBoundingClientRect();if(r.bottom+y>n)n=r.bottom+y}',
-        'if(!n)n=b.scrollHeight;',
-        'n=Math.ceil(n+(parseFloat(getComputedStyle(b).marginBottom)||0));',
+        "var h=0,send=function(){var b=document.body;if(!b)return;var n=0,c=b.children,i,r,y=window.pageYOffset||0;",
+        "for(i=0;i<c.length;i++){r=c[i].getBoundingClientRect();if(r.bottom+y>n)n=r.bottom+y}",
+        "if(!n)n=b.scrollHeight;",
+        "n=Math.ceil(n+(parseFloat(getComputedStyle(b).marginBottom)||0));",
         'if(n&&Math.abs(n-h)>4){h=n;p("ready",n)}};',
         'document.addEventListener("DOMContentLoaded",send);',
         'window.addEventListener("load",function(){send();setInterval(send,600)});setTimeout(send,120);',
-        '})();',
-        '<' + '/script' + '>',
-      ].join('');
+        "})();",
+        "<" + "/script" + ">",
+      ].join("");
 
       /* Seen in the wild: the model hands back markup with its double quotes
          pre-escaped as &quot; (a strict-JSON-mode tic). Parsed, that turns every
@@ -603,26 +969,33 @@
          and decode the whole document; a clean page never matches the gate. */
       function decodeEntityEscapedDoc(s) {
         if (!/=&quot;/.test(s)) return s;
-        log('app', 'page arrived entity-escaped', 'decoding &quot; etc. before mounting');
+        log(
+          "app",
+          "page arrived entity-escaped",
+          "decoding &quot; etc. before mounting",
+        );
         return s
           .replace(/&quot;/g, '"')
           .replace(/&#0?39;/g, "'")
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&');
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&amp;/g, "&");
       }
 
       /* Fences off, anything before the doctype off, entities decoded if the
          markup came back escaped, reporter in FIRST position. Returns null when
          the reply holds no HTML document at all. */
       function finalizeHtml(raw) {
-        let s = String(raw || '').trim();
-        s = s.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+        let s = String(raw || "").trim();
+        s = s
+          .replace(/^```[a-z]*\s*/i, "")
+          .replace(/```\s*$/, "")
+          .trim();
         const at = s.search(/<!doctype\s|<html[\s>]/i);
         if (at === -1) return null;
         if (at > 0) s = s.slice(at);
         s = decodeEntityEscapedDoc(s);
-        console.debug('page head:', s.slice(0, 200).replace(/\n/g, ' '));
+        console.debug("page head:", s.slice(0, 200).replace(/\n/g, " "));
         const headOpen = /<head[^>]*>/i.exec(s);
         if (headOpen) {
           const i = headOpen.index + headOpen[0].length;
@@ -649,45 +1022,55 @@
       const $ = (id) => document.getElementById(id);
 
       const LOG_STYLE = {
-        out: 'color:#1f9d76;font-weight:700',
-        in:  'color:#2f6bff;font-weight:700',
-        sim: 'color:#7c5cff;font-weight:700',
-        app: 'color:#b6792a;font-weight:700',
-        err: 'color:#d04545;font-weight:700',
+        out: "color:#1f9d76;font-weight:700",
+        in: "color:#2f6bff;font-weight:700",
+        sim: "color:#7c5cff;font-weight:700",
+        app: "color:#b6792a;font-weight:700",
+        err: "color:#d04545;font-weight:700",
       };
-      const LOG_ARROW = { out: '▶', in: '◀', sim: '✦', app: '•', err: '✕' };
+      const LOG_ARROW = { out: "▶", in: "◀", sim: "✦", app: "•", err: "✕" };
 
       function log(dir, type, detail) {
         const style = LOG_STYLE[dir] || LOG_STYLE.app;
-        const head = '%c' + (LOG_ARROW[dir] || '•') + ' ' + type;
-        const fn = dir === 'err' ? console.error : console.log;
+        const head = "%c" + (LOG_ARROW[dir] || "•") + " " + type;
+        const fn = dir === "err" ? console.error : console.log;
         if (detail === undefined || detail === null) fn(head, style);
         else fn(head, style, detail);
       }
 
       const SUGGESTIONS = [
-        'Bubble Sort', 'Binary Search', 'Stack', 'Queue', 'Hash Table',
-        'Binary Search Tree', 'Recursion', "Dijkstra's Algorithm",
-        'Big-O Notation', 'Sliding Window',
+        "Bubble Sort",
+        "Binary Search",
+        "Stack",
+        "Queue",
+        "Hash Table",
+        "Binary Search Tree",
+        "Recursion",
+        "Dijkstra's Algorithm",
+        "Big-O Notation",
+        "Sliding Window",
       ];
 
       /* --- the SDK — embedding only: ready, context, updateContext -------- */
       const kiwi = KiwiApp.create({
-        appSlug: 'explorable',
-        readyPayload: { preferredChatMode: 'sidepanel' },
+        appSlug: "explorable",
+        readyPayload: { preferredChatMode: "sidepanel" },
         onEvent: (dir, type, payload) => log(dir, type, payload),
       });
 
       kiwi.onStatus((mode) => {
         /* 'sim' now only means "no Kiwi host embeds this page" — generation
            still works, it never depended on the host once AI went direct. */
-        $('foot_sim').className = 'footsim' + (mode === 'sim' ? ' show' : '');
-        console.info('%cExplorables%c mode: ' + mode,
-          'background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700', '');
+        $("foot_sim").className = "footsim" + (mode === "sim" ? " show" : "");
+        console.info(
+          "%cExplorables%c mode: " + mode,
+          "background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700",
+          "",
+        );
       });
 
       kiwi.onContext((ctx) => {
-        console.info('kiwi:context', ctx);
+        console.info("kiwi:context", ctx);
       });
 
       /* =====================================================================
@@ -702,69 +1085,91 @@
          anyone who opens the page source. Acceptable for this demo's shared
          endpoint; do not reuse the pattern with a key you care about. */
 
-      const AI_BASE_URL   = 'https://litellm.tunnel.kiwiai.org/v1';
-      const AI_API_KEY    = 'sk--25JFDRKNCR17wHBCQzY-g';
-      const AI_MODEL      = 'Qwen3.8-27B-fast';   // -fast = non-reasoning: tokens go to output, not thinking
+      const AI_BASE_URL = "https://litellm.tunnel.kiwiai.org/v1";
+      const AI_API_KEY = "sk--25JFDRKNCR17wHBCQzY-g";
+      const AI_MODEL = "Qwen3.8-27B-fast"; // -fast = non-reasoning: tokens go to output, not thinking
       const AI_TIMEOUT_MS = 120000;
 
       /* One prompt in, the full reply text out. opts: { system, onChunk }. */
       async function llmChat(userPrompt, opts) {
         const o = opts || {};
         const messages = [];
-        if (o.system) messages.push({ role: 'system', content: o.system });
-        messages.push({ role: 'user', content: userPrompt });
+        if (o.system) messages.push({ role: "system", content: o.system });
+        messages.push({ role: "user", content: userPrompt });
 
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-        log('out', 'llm:request', AI_MODEL + ' · ' + userPrompt.length + ' prompt chars');
+        log(
+          "out",
+          "llm:request",
+          AI_MODEL + " · " + userPrompt.length + " prompt chars",
+        );
         try {
-          const res = await fetch(AI_BASE_URL + '/chat/completions', {
-            method: 'POST',
+          const res = await fetch(AI_BASE_URL + "/chat/completions", {
+            method: "POST",
             headers: {
-              'Authorization': 'Bearer ' + AI_API_KEY,
-              'Content-Type': 'application/json',
+              Authorization: "Bearer " + AI_API_KEY,
+              "Content-Type": "application/json",
             },
-            body: JSON.stringify({ model: AI_MODEL, messages: messages, stream: true }),
+            body: JSON.stringify({
+              model: AI_MODEL,
+              messages: messages,
+              stream: true,
+            }),
             signal: controller.signal,
           });
           if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            throw new Error('the model API answered ' + res.status +
-              (body ? ' — ' + body.slice(0, 200) : ''));
+            const body = await res.text().catch(() => "");
+            throw new Error(
+              "the model API answered " +
+                res.status +
+                (body ? " — " + body.slice(0, 200) : ""),
+            );
           }
 
           /* SSE: `data: {chunk}` lines, terminated by `data: [DONE]`. */
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
-          let buf = '', full = '';
+          let buf = "",
+            full = "";
           for (;;) {
             const r = await reader.read();
             if (r.done) break;
             buf += decoder.decode(r.value, { stream: true });
-            const lines = buf.split('\n');
+            const lines = buf.split("\n");
             buf = lines.pop();
             for (const line of lines) {
               const t = line.trim();
-              if (!t || t.indexOf('data:') !== 0) continue;
+              if (!t || t.indexOf("data:") !== 0) continue;
               const payload = t.slice(5).trim();
-              if (payload === '[DONE]') continue;
-              let delta = '';
+              if (payload === "[DONE]") continue;
+              let delta = "";
               try {
                 const j = JSON.parse(payload);
-                delta = (j.choices && j.choices[0] && j.choices[0].delta &&
-                         j.choices[0].delta.content) || '';
-              } catch (e) { /* keep-alive or partial line — skip */ }
+                delta =
+                  (j.choices &&
+                    j.choices[0] &&
+                    j.choices[0].delta &&
+                    j.choices[0].delta.content) ||
+                  "";
+              } catch (e) {
+                /* keep-alive or partial line — skip */
+              }
               if (delta) {
                 full += delta;
                 if (o.onChunk) o.onChunk(delta, full);
               }
             }
           }
-          log('in', 'llm:response', full.length + ' chars');
+          log("in", "llm:response", full.length + " chars");
           return full;
         } catch (e) {
-          if (e && e.name === 'AbortError') {
-            throw new Error('the request timed out after ' + (AI_TIMEOUT_MS / 1000) + ' seconds');
+          if (e && e.name === "AbortError") {
+            throw new Error(
+              "the request timed out after " +
+                AI_TIMEOUT_MS / 1000 +
+                " seconds",
+            );
           }
           throw e;
         } finally {
@@ -773,10 +1178,16 @@
       }
 
       function paintEngine() {
-        $('foot').className = 'foot good';
-        $('foot_txt').textContent = 'AI: ' + AI_MODEL + ' · direct';
-        console.info('AI route: direct — ' + AI_BASE_URL + ' · ' + AI_MODEL + '. The Kiwi bridge ' +
-          'carries no AI traffic; the page, head and how-to calls all hit the API from this file.');
+        $("foot").className = "foot good";
+        $("foot_txt").textContent = "AI: " + AI_MODEL + " · direct";
+        console.info(
+          "AI route: direct — " +
+            AI_BASE_URL +
+            " · " +
+            AI_MODEL +
+            ". The Kiwi bridge " +
+            "carries no AI traffic; the page, head and how-to calls all hit the API from this file.",
+        );
       }
 
       kiwi.ready();
@@ -794,23 +1205,36 @@
          learner typed. A miss falls through to generation, which is the whole
          hybrid: curated for the canon, generated for the long tail. */
 
-      let CATALOG_INDEX = [];   // [{alias, entry}], longest alias first
-      fetch('premade/catalog.json', { cache: 'no-cache' })   /* the catalog changes more often than the app */
+      let CATALOG_INDEX = []; // [{alias, entry}], longest alias first
+      fetch("premade/catalog.json", {
+        cache: "no-cache",
+      }) /* the catalog changes more often than the app */
         .then((r) => (r.ok ? r.json() : []))
         .then((list) => {
-          (list || []).forEach((e) => (e.match || []).forEach((a) => {
-            CATALOG_INDEX.push({ alias: normalizeConcept(a), entry: e });
-          }));
+          (list || []).forEach((e) =>
+            (e.match || []).forEach((a) => {
+              CATALOG_INDEX.push({ alias: normalizeConcept(a), entry: e });
+            }),
+          );
           CATALOG_INDEX.sort((x, y) => y.alias.length - x.alias.length);
-          console.info('premade catalog: ' + (list || []).length + ' visualizations, ' +
-            CATALOG_INDEX.length + ' aliases');
+          console.info(
+            "premade catalog: " +
+              (list || []).length +
+              " visualizations, " +
+              CATALOG_INDEX.length +
+              " aliases",
+          );
         })
-        .catch((e) => log('err', 'premade catalog failed to load', String(e)));
+        .catch((e) => log("err", "premade catalog failed to load", String(e)));
 
       /* '+' survives normalization on purpose: it is what tells "b+ tree"
          apart from "b tree". */
       function normalizeConcept(s) {
-        return String(s || '').toLowerCase().replace(/[-_'’]/g, ' ').replace(/\s+/g, ' ').trim();
+        return String(s || "")
+          .toLowerCase()
+          .replace(/[-_'’]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
       }
 
       /* Longest alias wins, so "binary search tree" beats "binary search".
@@ -823,8 +1247,9 @@
           if (/[一-鿿]/.test(cand.alias)) {
             if (c.indexOf(cand.alias) >= 0) return cand.entry;
           } else {
-            const esc = cand.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            if (new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(c)) return cand.entry;
+            const esc = cand.alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            if (new RegExp("(^|[^a-z0-9])" + esc + "($|[^a-z0-9])").test(c))
+              return cand.entry;
           }
         }
         return null;
@@ -833,17 +1258,22 @@
       /* A premade hit is an artifact with a URL instead of HTML. finishArt
          still runs so the how-to call gets the curated control labels. */
       function premadeArt(concept, hit) {
-        setSteps(['Loading a curated visualization', 'Setting up']);
-        setStep(0, 'done', hit.title);
-        log('app', 'premade hit', '"' + concept + '" → ' + hit.title + ' (' + hit.url + ')');
+        setSteps(["Loading a curated visualization", "Setting up"]);
+        setStep(0, "done", hit.title);
+        log(
+          "app",
+          "premade hit",
+          '"' + concept + '" → ' + hit.title + " (" + hit.url + ")",
+        );
         return finishArt(concept, {
-          html: '', premade: hit,
+          html: "",
+          premade: hit,
           controls: (hit.controls || []).slice(),
-          summary: String(hit.summary || ''),
+          summary: String(hit.summary || ""),
         });
       }
 
-      const current = { concept: '', art: null, html: '', via: '' };
+      const current = { concept: "", art: null, html: "", via: "" };
       let busy = false;
 
       /* Progress UI: a spinner, the current phase name, and one dot per phase.
@@ -852,29 +1282,38 @@
       let stepNames = [];
       function setSteps(names) {
         stepNames = names;
-        const box = $('pdots');
-        box.innerHTML = '';
-        names.forEach(() => box.appendChild(document.createElement('i')));
-        $('progress').className = 'progress show';
-        $('ptitle').textContent = names[0] || 'Working…';
-        $('psub').textContent = '';
+        const box = $("pdots");
+        box.innerHTML = "";
+        names.forEach(() => box.appendChild(document.createElement("i")));
+        $("progress").className = "progress show";
+        $("ptitle").textContent = names[0] || "Working…";
+        $("psub").textContent = "";
       }
       function setStep(i, state, detail) {
-        const dots = $('pdots').children;
-        if (dots[i]) dots[i].className = state || '';
-        if (state === 'run') {
-          $('progress').className = 'progress show';
-          $('ptitle').textContent = (stepNames[i] || 'Working') + '…';
-          $('psub').textContent = detail || '';
-        } else if (state === 'fail') {
-          $('progress').className = 'progress show err';
-          $('ptitle').textContent = 'Something went wrong';
-          $('psub').textContent = detail || '';
+        const dots = $("pdots").children;
+        if (dots[i]) dots[i].className = state || "";
+        if (state === "run") {
+          $("progress").className = "progress show";
+          $("ptitle").textContent = (stepNames[i] || "Working") + "…";
+          $("psub").textContent = detail || "";
+        } else if (state === "fail") {
+          $("progress").className = "progress show err";
+          $("ptitle").textContent = "Something went wrong";
+          $("psub").textContent = detail || "";
         }
-        console.debug('pipeline[' + i + '] ' + (stepNames[i] || '') + ' → ' + (state || 'idle') +
-          (detail ? ' (' + detail + ')' : ''));
+        console.debug(
+          "pipeline[" +
+            i +
+            "] " +
+            (stepNames[i] || "") +
+            " → " +
+            (state || "idle") +
+            (detail ? " (" + detail + ")" : ""),
+        );
       }
-      function doneSteps() { $('progress').className = 'progress'; }
+      function doneSteps() {
+        $("progress").className = "progress";
+      }
 
       /* Progressive painting. The result section goes up empty-but-shaped before
          the first call, and each of its three blocks is replaced on its own as
@@ -882,50 +1321,51 @@
          Nothing here waits for anything else. */
       function showSkeleton() {
         current.art = null;
-        current.html = '';
-        $('shell').className = 'shell';   /* out of the centred landing state */
-        $('r_title').style.display = 'none';
-        $('r_sub').style.display = 'none';
-        $('sk_head').className = 'sk show';
-        $('frame').removeAttribute('src');
-        $('frame').srcdoc = '';
-        $('frame').style.display = 'none';
-        $('frame').style.height = '';
-        $('credit').style.display = 'none';
-        $('stage').style.display = '';       /* a previous failure may have hidden it */
-        $('r_replay').style.display = 'none';  /* nothing mounted yet to replay */
-        $('stage').className = 'stage';
-        $('sk_stage').className = 'sk sk-stage show';
-        $('howtobox').style.display = '';
-        $('howto').style.display = 'none';
-        $('sk_howto').className = 'sk show';
-        $('result').className = 'result show';
+        current.html = "";
+        $("shell").className = "shell"; /* out of the centred landing state */
+        $("r_title").style.display = "none";
+        $("r_sub").style.display = "none";
+        $("sk_head").className = "sk show";
+        $("frame").removeAttribute("src");
+        $("frame").srcdoc = "";
+        $("frame").style.display = "none";
+        $("frame").style.height = "";
+        $("stage").style.display =
+          ""; /* a previous failure may have hidden it */
+        $("r_replay").style.display =
+          "none"; /* nothing mounted yet to replay */
+        $("stage").className = "stage";
+        $("sk_stage").className = "sk sk-stage show";
+        $("howtobox").style.display = "";
+        $("howto").style.display = "none";
+        $("sk_howto").className = "sk show";
+        $("result").className = "result show";
       }
 
       function paintHead(text) {
-        const t = (text && typeof text === 'object') ? text : {};
-        $('r_title').textContent = t.title || current.concept;
-        $('r_sub').textContent = t.concept || '';
-        $('sk_head').className = 'sk';
-        $('r_title').style.display = '';
-        $('r_sub').style.display = '';
+        const t = text && typeof text === "object" ? text : {};
+        $("r_title").textContent = t.title || current.concept;
+        $("r_sub").textContent = t.concept || "";
+        $("sk_head").className = "sk";
+        $("r_title").style.display = "";
+        $("r_sub").style.display = "";
       }
 
       function paintHowto(text) {
-        const h = (text && text.howto) || '';
-        $('howto').textContent = h;
-        $('sk_howto').className = 'sk';
-        $('howto').style.display = '';
-        $('howtobox').style.display = h ? '' : 'none';
+        const h = (text && text.howto) || "";
+        $("howto").textContent = h;
+        $("sk_howto").className = "sk";
+        $("howto").style.display = "";
+        $("howtobox").style.display = h ? "" : "none";
       }
 
       /* Nothing more is coming — take the shimmer down, so a failed run does not
          sit there looking like a run still in progress. */
       function clearSkeleton() {
-        if ($('sk_head').className.indexOf('show') >= 0) paintHead(null);
-        $('sk_stage').className = 'sk sk-stage';
-        $('frame').style.display = '';
-        if ($('sk_howto').className.indexOf('show') >= 0) paintHowto(null);
+        if ($("sk_head").className.indexOf("show") >= 0) paintHead(null);
+        $("sk_stage").className = "sk sk-stage";
+        $("frame").style.display = "";
+        if ($("sk_howto").className.indexOf("show") >= 0) paintHowto(null);
       }
 
       /* A failed build has NO page — and clearSkeleton() un-hides the frame,
@@ -934,12 +1374,12 @@
          interactive should be, with nothing to say it failed. Take the stage and
          the how-to down instead and let the warn bar be the whole result. */
       function failSkeleton() {
-        if ($('sk_head').className.indexOf('show') >= 0) paintHead(null);
-        $('sk_stage').className = 'sk sk-stage';
-        $('frame').style.display = 'none';
-        $('stage').style.display = 'none';   /* takes Replay down with it */
-        $('howtobox').style.display = 'none';
-        $('sk_howto').className = 'sk';
+        if ($("sk_head").className.indexOf("show") >= 0) paintHead(null);
+        $("sk_stage").className = "sk sk-stage";
+        $("frame").style.display = "none";
+        $("stage").style.display = "none"; /* takes Replay down with it */
+        $("howtobox").style.display = "none";
+        $("sk_howto").className = "sk";
       }
 
       /* --- the two prose calls ---------------------------------------------- */
@@ -954,7 +1394,7 @@
         return llmChat(headPrompt(concept))
           .then((r) => parseJSONLoose(r))
           .catch((e) => {
-            log('err', 'head call failed', (e && e.message) || String(e));
+            log("err", "head call failed", (e && e.message) || String(e));
             return null;
           });
       }
@@ -965,7 +1405,7 @@
         return llmChat(howtoPrompt(concept, plan))
           .then((r) => parseJSONLoose(r))
           .catch((e) => {
-            log('err', 'how-to call failed', (e && e.message) || String(e));
+            log("err", "how-to call failed", (e && e.message) || String(e));
             return null;
           });
       }
@@ -974,9 +1414,11 @@
          awaited), the artifact returned ready to mount. */
       function finishArt(concept, art) {
         art.controls = (Array.isArray(art.controls) ? art.controls : [])
-          .map(String).filter(Boolean).slice(0, 8);
+          .map(String)
+          .filter(Boolean)
+          .slice(0, 8);
         if (!art.controls.length) art.controls = extractControls(art.html);
-        art.summary = String(art.summary || '');
+        art.summary = String(art.summary || "");
         /* The how-to needs the control labels, so it can only start now — but it
            is not awaited: the page mounts without it and it drops in when ready. */
         art.howtoP = fetchHowto(concept, art);
@@ -985,26 +1427,26 @@
 
       /* --- the page call: raw HTML, streamed --------------------------------- */
       async function buildPage(concept, feedback) {
-        setSteps(['Generating the page', 'Setting up']);
-        setStep(0, 'run', '');
+        setSteps(["Generating the page", "Setting up"]);
+        setStep(0, "run", "");
         const raw = await llmChat(pagePrompt(concept, feedback), {
           system: SYSTEM_PROMPT,
-          onChunk: (_c, full) => setStep(0, 'run', full.length + ' chars'),
+          onChunk: (_c, full) => setStep(0, "run", full.length + " chars"),
         });
         const html = finalizeHtml(raw);
-        if (!html) throw new Error('the reply contained no HTML document');
-        setStep(0, 'done', Math.round(html.length / 100) / 10 + 'k chars');
-        return finishArt(concept, { html: html, controls: [], summary: '' });
+        if (!html) throw new Error("the reply contained no HTML document");
+        setStep(0, "done", Math.round(html.length / 100) / 10 + "k chars");
+        return finishArt(concept, { html: html, controls: [], summary: "" });
       }
 
       async function generate(concept, feedback) {
         if (busy) return;
         busy = true;
-        $('go').disabled = true;
-        $('go').textContent = 'Working…';
-        $('warn').className = 'warn';
+        $("go").disabled = true;
+        $("go").textContent = "Working…";
+        $("warn").className = "warn";
         current.concept = concept;
-        log('app', 'generate', concept);
+        log("app", "generate", concept);
 
         /* Three grey blocks go up before a single call is made, so the page has
            its shape from the moment Explore is pressed. */
@@ -1024,22 +1466,34 @@
              pedagogically vetted. Regenerate-with-feedback skips the catalog —
              feedback means the learner explicitly wants a *different* page. */
           const hit = feedback ? null : findPremade(concept);
-          const art = hit ? premadeArt(concept, hit)
-                          : await buildPage(concept, feedback);
-          current.via = hit ? 'premade' : 'direct';
+          const art = hit
+            ? premadeArt(concept, hit)
+            : await buildPage(concept, feedback);
+          current.via = hit ? "premade" : "direct";
 
           /* No compile-check, no repair ladder: the page is the model's own
              document. It mounts as-is; if it throws at runtime, the injected
              reporter surfaces the error and the warn bar offers a regeneration
              that carries that error back into the prompt. */
-          setStep(1, 'run', 'mounting…');
+          setStep(1, "run", "mounting…");
           /* A placeholder only: the real text is painted by the two prose calls
              as they land, and folded into art.text below for updateContext. */
           art.text = defaultText(concept);
-          console.info('artifact', { via: current.via, chars: art.html.length, controls: art.controls, summary: art.summary });
+          console.info("artifact", {
+            via: current.via,
+            chars: art.html.length,
+            controls: art.controls,
+            summary: art.summary,
+          });
           current.art = art;
           render();
-          setStep(1, 'done', art.premade ? art.premade.title : Math.round(current.html.length / 1024) + ' KB');
+          setStep(
+            1,
+            "done",
+            art.premade
+              ? art.premade.title
+              : Math.round(current.html.length / 1024) + " KB",
+          );
           doneSteps();
 
           /* The interactive is on screen already; the prose fills in behind it.
@@ -1048,7 +1502,7 @@
           const howto = await (art.howtoP || Promise.resolve(null));
           art.text = {
             title: String((head && head.title) || concept),
-            concept: String((head && head.concept) || ''),
+            concept: String((head && head.concept) || ""),
             howto: String((howto && howto.howto) || defaultText(concept).howto),
           };
           paintHead(art.text);
@@ -1056,31 +1510,40 @@
 
           /* Ground Kiwi's own chat panel in what the learner is looking at. */
           kiwi.updateContext(
-            'The student is exploring an interactive explanation of "' + concept + '" inside the ' +
-            'Explorable Explanations app. ' + (art.summary || art.text.concept || '') + ' Controls: ' +
-            controlsSummary(art.controls) + '.'
+            'The student is exploring an interactive explanation of "' +
+              concept +
+              '" inside the ' +
+              "Explorable Explanations app. " +
+              (art.summary || art.text.concept || "") +
+              " Controls: " +
+              controlsSummary(art.controls) +
+              ".",
           );
         } catch (err) {
           const msg = (err && err.message) || String(err);
-          log('err', 'generate failed', msg);
+          log("err", "generate failed", msg);
           const timedOut = TIMED_OUT_RE.test(msg) || msg === TIMEOUT_MSG;
-          setStep(stepNames.length ? stepNames.length - 1 : 0, 'fail',
-            timedOut ? 'That one took too long to build — try again, or try a simpler concept.'
-                     : 'Couldn\'t build that one — try again, or try a different concept.');
+          setStep(
+            stepNames.length ? stepNames.length - 1 : 0,
+            "fail",
+            timedOut
+              ? "That one took too long to build — try again, or try a simpler concept."
+              : "Couldn't build that one — try again, or try a different concept.",
+          );
           failSkeleton();
           showWarn(
             timedOut
-              ? 'This page took longer than the 120-second limit and was cancelled before it finished. ' +
-                'Retrying asks for a smaller page, which usually lands in time.'
-              : 'Generation failed: ' + msg,
+              ? "This page took longer than the 120-second limit and was cancelled before it finished. " +
+                  "Retrying asks for a smaller page, which usually lands in time."
+              : "Generation failed: " + msg,
             timedOut ? TIMEOUT_FEEDBACK : null,
-            'Try again',
+            "Try again",
           );
-          $('result').className = 'result show';
+          $("result").className = "result show";
         } finally {
           busy = false;
-          $('go').disabled = false;
-          $('go').textContent = 'Explore';
+          $("go").disabled = false;
+          $("go").textContent = "Explore";
         }
       }
 
@@ -1088,17 +1551,17 @@
          by paintHead/paintHowto, so re-mounting — Replay — never resets prose
          that is already on screen. Generated pages arrive as srcdoc with the
          injected reporter; premade pages load by URL from our own origin, so
-         they have no reporter — no watchdog, fixed height, credit line up. */
+         they have no reporter — no watchdog, viewport-derived height. */
       /* A fresh iframe per mount. Mutating sandbox/src/srcdoc on one long-lived
          frame is unreliable (a frame that has been an opaque srcdoc doc can
          keep refusing URL loads even after allow-same-origin is added), and a
          new element also guarantees no state leaks between runs. */
       function freshFrame(sandbox) {
-        const old = $('frame');
-        const f = document.createElement('iframe');
-        f.id = 'frame';
+        const old = $("frame");
+        const f = document.createElement("iframe");
+        f.id = "frame";
         f.title = old.title;
-        f.setAttribute('sandbox', sandbox);
+        f.setAttribute("sandbox", sandbox);
         old.replaceWith(f);
         return f;
       }
@@ -1115,7 +1578,9 @@
          the whole canvas via scrolling, capped so huge monitors don't get a
          silly tower. */
       function premadeHeight(pre) {
-        return Math.round(Math.max(pre.height || 620, Math.min(window.innerHeight - 190, 900)));
+        return Math.round(
+          Math.max(pre.height || 620, Math.min(window.innerHeight - 190, 900)),
+        );
       }
 
       /* Browser-zoom emulation for premade pages, whose type tends to run
@@ -1126,30 +1591,65 @@
          compositing is involved. Catalog entries can override with "zoom". */
       const PREMADE_ZOOM = 0.75;
 
+      /* Viewport cropping hides a hotlinked page's site chrome: the frame is
+         laid out taller than the stage window by (top + bottom) inner-CSS-px
+         and shifted up, and .stage's overflow:hidden clips both bands away.
+         This is exact for csvistool because its app is a 100vh flex column —
+         header and footer are ALWAYS at the viewport's edges (the document
+         never scrolls) and #mainContent{flex:1} absorbs the extra height we
+         hand it. Values are estimates from their CSS; a few px of over-crop
+         only eats white padding. Per-entry "crop":[top,bottom] overrides. */
+      const CSVISTOOL_CROP = [64, 49];
+
+      function premadeCrop(pre) {
+        if (pre.crop) return pre.crop;
+        return pre.url.indexOf("csvistool.com") >= 0 ? CSVISTOOL_CROP : [0, 0];
+      }
+
       function sizePremadeFrame(f, pre) {
         const z = pre.zoom || PREMADE_ZOOM;
+        const crop = premadeCrop(pre);
+        const cropTopV = Math.round(crop[0] * z); /* visual px */
         const visH = premadeHeight(pre);
-        const layoutH = Math.round(visH / z);
-        f.style.width = (100 / z) + '%';
-        f.style.height = layoutH + 'px';
-        f.style.transform = 'scale(' + z + ')';
-        f.style.transformOrigin = '0 0';
-        /* scale() shrinks pixels but not the layout box — reclaim the excess
-           so the credit line sits at the visual bottom, not the layout one. */
-        f.style.marginBottom = (visH - layoutH) + 'px';
+        const layoutH = Math.round(visH / z + crop[0] + crop[1]);
+        f.style.width = 100 / z + "%";
+        f.style.height = layoutH + "px";
+        f.style.transform = "scale(" + z + ")";
+        f.style.transformOrigin = "0 0";
+        f.style.marginTop = -cropTopV + "px";
+        /* scale() shrinks pixels but not the layout box — pull the flow
+           footprint (marginTop + layoutH) back to exactly the visible visH,
+           so whatever follows the stage sits right below the visual bottom. */
+        f.style.marginBottom = visH - (layoutH - cropTopV) + "px";
       }
 
       function mountPremadeFrame(pre) {
-        const f = freshFrame('allow-scripts allow-same-origin');
+        const f = freshFrame("allow-scripts allow-same-origin");
+        f.addEventListener("load", () => {
+          /* Same-origin (vendored Galles) pages get the cleaner treatment:
+             inject CSS that hides #header/#footer outright. Cropping would
+             not fit them — their footer sits at the end of the document
+             flow, not at the viewport bottom. Cross-origin documents throw
+             here, which is exactly what the viewport crop above is for. */
+          try {
+            const d = f.contentDocument;
+            const st = d.createElement("style");
+            st.textContent = "#header, #footer { display: none !important; }";
+            d.head.appendChild(st);
+          } catch (e) {
+            /* cross-origin — chrome hidden by cropping instead */
+          }
+        });
         f.src = pre.url;
         sizePremadeFrame(f, pre);
         return f;
       }
 
       /* The wide stage is CSS-only, but the frame sizing needs re-deriving. */
-      window.addEventListener('resize', () => {
+      window.addEventListener("resize", () => {
         const pre = current.art && current.art.premade;
-        if (pre && $('frame').getAttribute('src')) sizePremadeFrame($('frame'), pre);
+        if (pre && $("frame").getAttribute("src"))
+          sizePremadeFrame($("frame"), pre);
       });
 
       function render() {
@@ -1158,26 +1658,38 @@
         if (pre) {
           if (aliveTimer) clearTimeout(aliveTimer);
           watchdogWarned = false;
-          $('stage').className = 'stage wide';   /* premade canvases are ~1000px wide */
+          $("stage").className =
+            "stage wide"; /* premade canvases are ~1000px wide */
           mountPremadeFrame(pre);
-          $('credit').textContent = 'Visualization: ' + (pre.credit ||
-            'David Galles, University of San Francisco (FreeBSD license)');
-          $('credit').style.display = '';
+          /* No visible credit bar (FreeBSD licensing lives in the vendored
+             sources and catalog.json) — attribution goes to the console. */
+          console.info(
+            "visualization credit: " +
+              (pre.credit ||
+                "David Galles, University of San Francisco (FreeBSD license)"),
+          );
         } else {
-          $('stage').className = 'stage';        /* generated pages fit the column */
-          $('credit').style.display = 'none';
+          $("stage").className = "stage"; /* generated pages fit the column */
           armWatchdog();
-          freshFrame('allow-scripts').srcdoc = current.html;
+          freshFrame("allow-scripts").srcdoc = current.html;
         }
-        $('sk_stage').className = 'sk sk-stage';
-        $('frame').style.display = '';
-        $('r_replay').style.display = '';   /* there is now something to replay */
-        $('result').className = 'result show';
+        $("sk_stage").className = "sk sk-stage";
+        $("frame").style.display = "";
+        $("r_replay").style.display = ""; /* there is now something to replay */
+        $("result").className = "result show";
         const text = current.art.text || defaultText(current.concept);
-        console.info('mounted "' + (text.title || current.concept) + '" · ' +
-          (pre ? 'premade (' + pre.url + ') + LLM prose ×2'
-               : Math.round(current.html.length / 1024) + ' KB · via direct API (' + AI_MODEL + ') ×3') +
-          ' — source: __explorable.source()');
+        console.info(
+          'mounted "' +
+            (text.title || current.concept) +
+            '" · ' +
+            (pre
+              ? "premade (" + pre.url + ") + LLM prose ×2"
+              : Math.round(current.html.length / 1024) +
+                " KB · via direct API (" +
+                AI_MODEL +
+                ") ×3") +
+            " — source: __explorable.source()",
+        );
       }
 
       /* `feedback` is the error a regeneration should carry back into the
@@ -1185,22 +1697,23 @@
       let fixTarget = null;
       function showWarn(text, feedback, label) {
         fixTarget = feedback;
-        $('warn_txt').textContent = text;
-        $('warn_fix').textContent = label || 'Regenerate with this error';
-        $('warn_fix').style.display = feedback ? '' : 'none';
-        $('warn').className = 'warn show';
+        $("warn_txt").textContent = text;
+        $("warn_fix").textContent = label || "Regenerate with this error";
+        $("warn_fix").style.display = feedback ? "" : "none";
+        $("warn").className = "warn show";
       }
 
       /* llmChat aborts the fetch at AI_TIMEOUT_MS and surfaces it as
          `the request timed out after …`. Matched in one place so the retry
          copy cannot disagree about what a timeout is. */
       const TIMED_OUT_RE = /timed out/i;
-      const TIMEOUT_MSG = 'the page took longer than the 120-second limit to generate';
+      const TIMEOUT_MSG =
+        "the page took longer than the 120-second limit to generate";
       const TIMEOUT_FEEDBACK =
-        'the previous attempt was aborted after 120 seconds without finishing. ' +
-        'Make this page distinctly smaller and plainer so it arrives in time: ' +
-        'aim for 3000 characters rather than 6000, two or three controls, the ' +
-        'bare minimum of CSS.';
+        "the previous attempt was aborted after 120 seconds without finishing. " +
+        "Make this page distinctly smaller and plainer so it arrives in time: " +
+        "aim for 3000 characters rather than 6000, two or three controls, the " +
+        "bare minimum of CSS.";
 
       /* The silent-blank watchdog. The reporter always posts at least one
          'ready' — it is its own <script>, so even a crash in the model's code
@@ -1216,15 +1729,21 @@
         if (aliveTimer) clearTimeout(aliveTimer);
         aliveTimer = setTimeout(() => {
           if (frameAlive || !current.html) return;
-          log('err', 'generated page silent', 'no ready/error message within 4s of mounting');
+          log(
+            "err",
+            "generated page silent",
+            "no ready/error message within 4s of mounting",
+          );
           watchdogWarned = true;
-          showWarn('The page mounted but never reported in — it likely rendered blank. ' +
-            'Regenerating usually fixes this.',
-            'the previous page rendered blank: its scripts never ran or it drew nothing');
+          showWarn(
+            "The page mounted but never reported in — it likely rendered blank. " +
+              "Regenerating usually fixes this.",
+            "the previous page rendered blank: its scripts never ran or it drew nothing",
+          );
         }, 4000);
       }
 
-      window.addEventListener('message', (e) => {
+      window.addEventListener("message", (e) => {
         const d = e.data;
         if (!d || d.__ee !== NONCE) return;
         frameAlive = true;
@@ -1232,17 +1751,26 @@
            watchdog's "rendered blank" warning back down (a browser that
            throttles a background tab can delay the frame's first post well
            past the 4 s window). */
-        if (watchdogWarned) { watchdogWarned = false; $('warn').className = 'warn'; }
-        if (d.kind === 'ready') {
+        if (watchdogWarned) {
+          watchdogWarned = false;
+          $("warn").className = "warn";
+        }
+        if (d.kind === "ready") {
           /* Logged, not silent: "the stage went blank" is otherwise impossible to
              tell apart from "the stage is fine but its pixels never reached the
              screen" — the heights are the only proof from out here that the
              document inside is still laid out and still reporting. */
-          console.debug('frame height report:', d.data, '→ stage', Math.max(400, Math.min(820, (Number(d.data) || 0) + 22)));
-          $('frame').style.height = Math.max(400, Math.min(820, (Number(d.data) || 0) + 22)) + 'px';
-        } else if (d.kind === 'error') {
-          log('err', 'generated page', d.data);
-          showWarn('The page hit an error: ' + d.data, String(d.data));
+          console.debug(
+            "frame height report:",
+            d.data,
+            "→ stage",
+            Math.max(400, Math.min(820, (Number(d.data) || 0) + 22)),
+          );
+          $("frame").style.height =
+            Math.max(400, Math.min(820, (Number(d.data) || 0) + 22)) + "px";
+        } else if (d.kind === "error") {
+          log("err", "generated page", d.data);
+          showWarn("The page hit an error: " + d.data, String(d.data));
         }
       });
 
@@ -1250,35 +1778,43 @@
          PART 8 — buttons + the console debug API
          ===================================================================== */
 
-      $('go').onclick = () => {
-        const c = $('concept').value.trim();
-        if (!c) { $('concept').focus(); return; }
+      $("go").onclick = () => {
+        const c = $("concept").value.trim();
+        if (!c) {
+          $("concept").focus();
+          return;
+        }
         generate(c);
       };
-      $('concept').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go').click(); });
-
-      SUGGESTIONS.forEach((s) => {
-        const el = document.createElement('button');
-        el.type = 'button';
-        el.className = 'c';
-        el.textContent = s;
-        el.onclick = () => { $('concept').value = s; generate(s); };
-        $('chips').appendChild(el);
+      $("concept").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") $("go").click();
       });
 
-      $('r_replay').onclick = () => {
-        $('warn').className = 'warn';
+      SUGGESTIONS.forEach((s) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "c";
+        el.textContent = s;
+        el.onclick = () => {
+          $("concept").value = s;
+          generate(s);
+        };
+        $("chips").appendChild(el);
+      });
+
+      $("r_replay").onclick = () => {
+        $("warn").className = "warn";
         const pre = current.art && current.art.premade;
-        if (pre) mountPremadeFrame(pre);       /* fresh frame = clean reload */
-        else $('frame').srcdoc = current.html;
+        if (pre) mountPremadeFrame(pre); /* fresh frame = clean reload */
+        else $("frame").srcdoc = current.html;
       };
       /* Repair = regenerate with the error folded into the prompt. Patching one
          function inside a model-authored page is guesswork; asking for the page
          again with "avoid this mistake" is not. */
-      $('warn_fix').onclick = () => {
+      $("warn_fix").onclick = () => {
         if (busy || !fixTarget || !current.concept) return;
         const feedback = fixTarget;
-        $('warn').className = 'warn';
+        $("warn").className = "warn";
         generate(current.concept, feedback);
       };
 
@@ -1286,13 +1822,19 @@
       window.__explorable = {
         kiwi,
         /* The full HTML of the currently mounted explanation. */
-        source() { return current.html; },
+        source() {
+          return current.html;
+        },
         /* The parsed artifact (html, controls, summary, text) behind it. */
-        artifact() { return current.art; },
+        artifact() {
+          return current.art;
+        },
       };
-      console.info('%cExplorables%c debug API: __explorable.source() · .artifact() — AI + bridge traffic logs here.',
-        'background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700', '');
-
+      console.info(
+        "%cExplorables%c debug API: __explorable.source() · .artifact() — AI + bridge traffic logs here.",
+        "background:#1f9d76;color:#fff;padding:1px 6px;border-radius:4px;font-weight:700",
+        "",
+      );
     </script>
   </body>
 </html>
