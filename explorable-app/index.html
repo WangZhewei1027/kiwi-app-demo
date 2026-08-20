@@ -176,10 +176,27 @@
 
       .chips {
         display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .chiprow {
+        display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 8px;
-        margin-top: 16px;
+        align-items: center;
+        gap: 7px;
+      }
+      .chiplabel {
+        flex-basis: 100%;
+        text-align: center;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin-bottom: 1px;
+        user-select: none;
       }
       .chips .c {
         font: inherit;
@@ -193,14 +210,39 @@
         user-select: none;
         transition: 0.12s;
       }
-      .chips .c:hover {
-        border-color: var(--acc);
-        color: var(--acc-d);
-        background: #fff;
-      }
       .chips .c:focus-visible {
         outline: 2px solid var(--acc);
         outline-offset: 2px;
+      }
+      /* Curated: solid, green-tinted — reads as "already on the shelf". */
+      .chips .c.instant {
+        border-color: #d3ebe1;
+        background: #f3faf7;
+        color: var(--acc-d);
+      }
+      .chips .c.instant::before {
+        content: "▸";
+        margin-right: 6px;
+        color: var(--acc);
+      }
+      .chips .c.instant:hover {
+        border-color: var(--acc);
+        background: #fff;
+      }
+      /* AI: dashed, violet-tinted — reads as "will be made for you". */
+      .chips .c.gen {
+        border-style: dashed;
+        border-color: var(--sim-line);
+        background: var(--sim-bg);
+        color: var(--sim);
+      }
+      .chips .c.gen::before {
+        content: "✦";
+        margin-right: 6px;
+      }
+      .chips .c.gen:hover {
+        border-color: var(--sim);
+        background: #fff;
       }
 
       /* ---------- Progress ---------- */
@@ -1038,17 +1080,16 @@
         else fn(head, style, detail);
       }
 
-      const SUGGESTIONS = [
-        "Bubble Sort",
-        "Binary Search",
-        "Stack",
-        "Queue",
-        "Hash Table",
-        "Binary Search Tree",
-        "Recursion",
-        "Dijkstra's Algorithm",
+      /* Concepts the catalog does NOT cover — these chips demonstrate the
+         generation path. Everything the catalog does cover is rendered as its
+         own chip row straight from catalog.json (renderChips, PART 8). */
+      const GENERATE_SUGGESTIONS = [
         "Big-O Notation",
         "Sliding Window",
+        "Red-Black Tree",
+        "Bloom Filter",
+        "Consistent Hashing",
+        "Recursion",
       ];
 
       /* --- the SDK — embedding only: ready, context, updateContext -------- */
@@ -1198,28 +1239,33 @@
          ===================================================================== */
 
       /* --- retrieval first: the premade catalog ----------------------------
-         premade/catalog.json maps concept aliases to hand-crafted, openly
-         licensed visualizations vendored under premade/ (currently the Galles
-         USF set, FreeBSD license). A hit replaces only the PAGE call — the
-         head and how-to prose are still generated, personalized to what the
-         learner typed. A miss falls through to generation, which is the whole
-         hybrid: curated for the canon, generated for the long tail. */
+         premade/catalog.json maps concept aliases to hotlinked csvistool.com
+         visualizations (Georgia Tech's CS1332 tool). A hit replaces only the
+         PAGE call — the head and how-to prose are still generated,
+         personalized to what the learner typed. A miss falls through to
+         generation, which is the whole hybrid: curated for the canon,
+         generated for the long tail. */
 
+      let CATALOG = [];
       let CATALOG_INDEX = []; // [{alias, entry}], longest alias first
       fetch("premade/catalog.json", {
         cache: "no-cache",
       }) /* the catalog changes more often than the app */
         .then((r) => (r.ok ? r.json() : []))
         .then((list) => {
-          (list || []).forEach((e) =>
-            (e.match || []).forEach((a) => {
+          CATALOG = list || [];
+          CATALOG.forEach((e) =>
+            /* the title is an alias too, so a curated chip (labelled with the
+               title) is guaranteed to route back to its own entry */
+            (e.match || []).concat(e.title ? [e.title] : []).forEach((a) => {
               CATALOG_INDEX.push({ alias: normalizeConcept(a), entry: e });
             }),
           );
           CATALOG_INDEX.sort((x, y) => y.alias.length - x.alias.length);
+          renderChips();
           console.info(
             "premade catalog: " +
-              (list || []).length +
+              CATALOG.length +
               " visualizations, " +
               CATALOG_INDEX.length +
               " aliases",
@@ -1625,21 +1671,6 @@
 
       function mountPremadeFrame(pre) {
         const f = freshFrame("allow-scripts allow-same-origin");
-        f.addEventListener("load", () => {
-          /* Same-origin (vendored Galles) pages get the cleaner treatment:
-             inject CSS that hides #header/#footer outright. Cropping would
-             not fit them — their footer sits at the end of the document
-             flow, not at the viewport bottom. Cross-origin documents throw
-             here, which is exactly what the viewport crop above is for. */
-          try {
-            const d = f.contentDocument;
-            const st = d.createElement("style");
-            st.textContent = "#header, #footer { display: none !important; }";
-            d.head.appendChild(st);
-          } catch (e) {
-            /* cross-origin — chrome hidden by cropping instead */
-          }
-        });
         f.src = pre.url;
         sizePremadeFrame(f, pre);
         return f;
@@ -1661,13 +1692,9 @@
           $("stage").className =
             "stage wide"; /* premade canvases are ~1000px wide */
           mountPremadeFrame(pre);
-          /* No visible credit bar (FreeBSD licensing lives in the vendored
-             sources and catalog.json) — attribution goes to the console. */
-          console.info(
-            "visualization credit: " +
-              (pre.credit ||
-                "David Galles, University of San Francisco (FreeBSD license)"),
-          );
+          /* No visible credit bar — attribution goes to the console
+             (FreeBSD licensing needs source headers, not an on-page notice). */
+          console.info("visualization credit: " + (pre.credit || pre.url));
         } else {
           $("stage").className = "stage"; /* generated pages fit the column */
           armWatchdog();
@@ -1790,17 +1817,42 @@
         if (e.key === "Enter") $("go").click();
       });
 
-      SUGGESTIONS.forEach((s) => {
-        const el = document.createElement("button");
-        el.type = "button";
-        el.className = "c";
-        el.textContent = s;
-        el.onclick = () => {
-          $("concept").value = s;
-          generate(s);
+      /* Two chip rows under the ask bar, visually distinct: every curated
+         catalog entry (loads instantly from csvistool), then the AI examples
+         (generated live). Runs once with an empty catalog so the AI row is
+         up immediately, and again when the catalog lands. */
+      function renderChips() {
+        const box = $("chips");
+        box.innerHTML = "";
+        const addRow = (labelText, cls, concepts) => {
+          if (!concepts.length) return;
+          const row = document.createElement("div");
+          row.className = "chiprow";
+          const label = document.createElement("span");
+          label.className = "chiplabel";
+          label.textContent = labelText;
+          row.appendChild(label);
+          concepts.forEach((s) => {
+            const el = document.createElement("button");
+            el.type = "button";
+            el.className = "c " + cls;
+            el.textContent = s;
+            el.onclick = () => {
+              $("concept").value = s;
+              generate(s);
+            };
+            row.appendChild(el);
+          });
+          box.appendChild(row);
         };
-        $("chips").appendChild(el);
-      });
+        addRow(
+          "Curated · opens instantly",
+          "instant",
+          CATALOG.map((e) => e.title),
+        );
+        addRow("AI · generated live", "gen", GENERATE_SUGGESTIONS);
+      }
+      renderChips();
 
       $("r_replay").onclick = () => {
         $("warn").className = "warn";
