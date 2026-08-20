@@ -1118,17 +1118,38 @@
         return Math.round(Math.max(pre.height || 620, Math.min(window.innerHeight - 190, 900)));
       }
 
+      /* Browser-zoom emulation for premade pages, whose type tends to run
+         large inside our stage: lay the frame out 1/z bigger, then scale(z)
+         it back down. The inner page sees a proportionally LARGER viewport —
+         exactly what browser zoom-out does — and input hit-testing maps
+         through the transform for free. Cross-origin safe: only the parent's
+         compositing is involved. Catalog entries can override with "zoom". */
+      const PREMADE_ZOOM = 0.75;
+
+      function sizePremadeFrame(f, pre) {
+        const z = pre.zoom || PREMADE_ZOOM;
+        const visH = premadeHeight(pre);
+        const layoutH = Math.round(visH / z);
+        f.style.width = (100 / z) + '%';
+        f.style.height = layoutH + 'px';
+        f.style.transform = 'scale(' + z + ')';
+        f.style.transformOrigin = '0 0';
+        /* scale() shrinks pixels but not the layout box — reclaim the excess
+           so the credit line sits at the visual bottom, not the layout one. */
+        f.style.marginBottom = (visH - layoutH) + 'px';
+      }
+
       function mountPremadeFrame(pre) {
         const f = freshFrame('allow-scripts allow-same-origin');
         f.src = pre.url;
-        f.style.height = premadeHeight(pre) + 'px';
+        sizePremadeFrame(f, pre);
         return f;
       }
 
-      /* The wide stage is CSS-only, but the height needs re-deriving. */
+      /* The wide stage is CSS-only, but the frame sizing needs re-deriving. */
       window.addEventListener('resize', () => {
         const pre = current.art && current.art.premade;
-        if (pre && $('frame').getAttribute('src')) $('frame').style.height = premadeHeight(pre) + 'px';
+        if (pre && $('frame').getAttribute('src')) sizePremadeFrame($('frame'), pre);
       });
 
       function render() {
