@@ -244,6 +244,19 @@
         border-color: var(--sim);
         background: #fff;
       }
+      /* The expand/collapse toggle: quieter than a real chip — a ghost. */
+      .chips .c.more {
+        border-style: dashed;
+        border-color: var(--line);
+        background: transparent;
+        color: var(--faint);
+        font-weight: 600;
+      }
+      .chips .c.more:hover {
+        border-color: var(--acc);
+        color: var(--acc-d);
+        background: #fff;
+      }
 
       /* ---------- Progress ---------- */
       .progress {
@@ -1817,15 +1830,30 @@
         if (e.key === "Enter") $("go").click();
       });
 
-      /* Two chip rows under the ask bar, visually distinct: every curated
-         catalog entry (loads instantly from csvistool), then the AI examples
-         (generated live). Runs once with an empty catalog so the AI row is
-         up immediately, and again when the catalog lands. */
+      /* Two chip rows under the ask bar, visually distinct: curated catalog
+         entries (load instantly from csvistool), then the AI examples
+         (generated live). The curated row starts COLLAPSED to a handful of
+         well-known picks — the full 38 would drown the landing page — with a
+         toggle chip at the end that swaps the rest in and out. Runs once with
+         an empty catalog so the AI row is up immediately, and again when the
+         catalog lands. */
+      const FEATURED_IDS = [
+        "bst",
+        "heap",
+        "openhash",
+        "stack",
+        "queue",
+        "quicksort",
+        "bfs",
+        "dijkstra",
+      ];
+      let chipsExpanded = false;
+
       function renderChips() {
         const box = $("chips");
         box.innerHTML = "";
-        const addRow = (labelText, cls, concepts) => {
-          if (!concepts.length) return;
+        const addRow = (labelText, cls, concepts, extra) => {
+          if (!concepts.length && !extra) return;
           const row = document.createElement("div");
           row.className = "chiprow";
           const label = document.createElement("span");
@@ -1843,12 +1871,35 @@
             };
             row.appendChild(el);
           });
+          if (extra) row.appendChild(extra);
           box.appendChild(row);
         };
+
+        const featured = FEATURED_IDS.map((id) =>
+          CATALOG.find((e) => e.id === id),
+        ).filter(Boolean);
+        const shown = chipsExpanded || !featured.length ? CATALOG : featured;
+        const hiddenCount = CATALOG.length - shown.length;
+
+        let toggle = null;
+        if (chipsExpanded || hiddenCount > 0) {
+          toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "c more";
+          toggle.textContent = chipsExpanded
+            ? "Show less ▴"
+            : hiddenCount + " more ▾";
+          toggle.onclick = () => {
+            chipsExpanded = !chipsExpanded;
+            renderChips();
+          };
+        }
+
         addRow(
           "Curated · opens instantly",
           "instant",
-          CATALOG.map((e) => e.title),
+          shown.map((e) => e.title),
+          toggle,
         );
         addRow("AI · generated live", "gen", GENERATE_SUGGESTIONS);
       }
