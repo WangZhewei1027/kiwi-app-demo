@@ -4,40 +4,39 @@ Ask it a concept. It comes back with a small interactive page — bars you step
 through, a stack you push onto, a search that greys out half the list per guess —
 rendered live in a sandboxed iframe.
 
-Single file (`index.html`), no build step, built on the bundled
-[`@kiwi/app-sdk`](./kiwi-app-sdk/). Copy this folder as-is; it is self-contained.
+The frontend uses the bundled [`@kiwi/app-sdk`](./kiwi-app-sdk/) for embedding
+(`kiwi:ready` / `kiwi:context` / `kiwi:updateContext`). Model requests go to the
+same-origin Vercel function at `/api/chat`; credentials remain on the server.
 
-**AI calls go straight to the model API.** The Kiwi bridge is used for the
-embedding protocol only (`kiwi:ready` / `kiwi:context` / `kiwi:updateContext`);
-no AI traffic rides it. The app works identically standalone and embedded.
+## Model configuration and deployment
 
----
+Deploy the repository root to Vercel using the **Other** framework preset.
+`vercel.json` defines the build, public output directory and streaming function.
+Configure these server-side environment variables in Vercel before deploying:
 
-## How it talks to the model
-
-One route. Every call is a plain `fetch` to an OpenAI-compatible
-`/chat/completions` endpoint, streamed as SSE (PART 6 of `index.html`):
-
-| | value |
+| Variable | Value |
 | --- | --- |
-| Endpoint | `AI_BASE_URL` — a LiteLLM proxy (`https://litellm.tunnel.kiwiai.org/v1`) |
-| Model | `AI_MODEL` — `Qwen3.8-27B-fast` (the `-fast` variants are non-reasoning: tokens go to output, not thinking) |
-| Auth | `AI_API_KEY`, sent as a Bearer header |
-| Timeout | `AI_TIMEOUT_MS` (120 s) — the app aborts the fetch itself; a late page is discarded whole |
-| Output cap | none — the page budget in `PAGE_RULES` is a latency rule, not a token cap |
+| `AI_BASE_URL` | OpenAI-compatible API base URL, e.g. `https://litellm.tunnel.kiwiai.org/v1` |
+| `AI_API_KEY` | Model service key; use a rotated key if the previous one was exposed |
+| `AI_MODEL` | Model identifier, e.g. `Qwen3.8-27B-fast` |
 
-The old two-surface split (Kiwi's capped `kiwi:askAI` tutor agent vs the
-uncapped `contextualChat` op) is gone, and with it the app token, the scope
-pre-check, the prompt registration/approval dance, and the route-selection
-footer. The footer now just names the model.
+The function fixes the model and upstream URL, validates messages, and streams
+SSE back to the browser. Its timeout is 115 seconds, within the frontend's
+120-second timeout and the function's 120-second execution limit. There is no
+app-level output-token cap. Upstream error bodies and credentials are never
+returned in an HTTP error response.
 
-> ⚠️ The API key ships inside `index.html`, readable by anyone who opens the
-> page source. That is acceptable for this demo's shared endpoint — do not
-> reuse the pattern with a key you care about.
+The public build includes only the HTML pages, the SDK and the curated catalog.
+It does not include environment files, the function source or registration scripts.
+Never put the key in frontend JavaScript, `vercel.json`, a `VITE_` variable or a
+`NEXT_PUBLIC_` variable. Environment changes require a new Vercel deployment.
 
-Because the browser now calls the endpoint directly, the endpoint must answer
-CORS preflights for the app's origin. The LiteLLM proxy above echoes any
-origin, so any port works; nothing needs to be added to Kiwi's `FRONTEND_URL`.
+This remains a public demo. Same-origin checks and per-instance limits are not
+user authentication or a global spending quota. Use the model provider's budget
+and key restrictions, or add authentication before broader distribution.
+
+GitHub Pages can still serve the static page and curated visualizations, but
+cannot run `/api/chat`. Use the Vercel URL for AI generation and Kiwi registration.
 
 ---
 
@@ -105,7 +104,7 @@ is replaced on its own: header, then the interactive, then the how-to. Merging
 the head into the build call, or letting it name the controls, would put the
 first visible text back behind the slowest thing on the page.
 
-Call counts, therefore: **three direct API calls per run** — the page and the
+Call counts, therefore: **three proxy API calls per run** — the page and the
 head together, then the how-to. The page prompt tells the model NOT to put a
 title or a concept paragraph inside the page (that prose lives outside the
 iframe) and that it is expected to write the full HTML, CSS and JavaScript
@@ -133,11 +132,18 @@ inside a model-authored page is guesswork, asking for the page again with
 
 ## Two ways to run it
 
+Run from the repository root with Node.js 22:
+
 ```bash
-# from this folder:
-python3 -m http.server 8000
-# then open http://localhost:8000/
+cp .env.example .env.local
+# Fill in server-side configuration in .env.local (ignored by Git).
+npx vercel dev --listen 8000
+# Open http://localhost:8000/explorable-app/
 ```
+
+`npm run build` builds only public static assets; `npm test` uses mocked model
+responses and does not call a real model. A plain static server can display
+curated visualizations but cannot generate AI content.
 
 **A) Standalone.** Nothing embeds the page, so the SDK reports `sim` mode and
 the footer shows a *Standalone* badge — but generation is real: the AI calls
@@ -174,9 +180,10 @@ class.
   The host pins `event.origin` to it and drops mismatched messages — which
   shows up as the app never receiving `kiwi:context` (the *Standalone* badge
   stays up even though the page is inside Kiwi).
-- **No CORS entry in Kiwi's `FRONTEND_URL` is needed for the AI** — the calls
-  go to the LiteLLM endpoint, not to the Kiwi backend. (The endpoint's own
-  CORS must allow the app's origin; the current one echoes any origin.)
+- **No CORS entry in Kiwi's `FRONTEND_URL` is needed for AI** — the browser
+  calls the same-origin Vercel function, which calls the model server-side.
+- When moving from GitHub Pages to Vercel, update `APP_URL` to the complete
+  Vercel app URL and re-register the UI URL in Kiwi.
 
 ---
 
@@ -190,9 +197,9 @@ class.
 | 3 | `parseJSONLoose` / `repairJSON` for the prose replies, plus `extractControls` |
 | 4 | mounting: `finalizeHtml` (fences off, entities decoded, reporter in) |
 | 5 | bridge wiring (embedding only) and the event log |
-| 6 | the direct AI client: `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL`, `llmChat` (SSE streaming, 120 s abort) |
+| 6 | the proxy client: `AI_CHAT_URL`, `llmChat` (SSE streaming, 120 s abort) |
 | 7 | the premade catalog (`findPremade`, `premadeArt`) and the pipeline: `fetchHead`, `fetchHowto`, `buildPage`, `generate`, and the `showSkeleton` / `paintHead` / `paintHowto` painters |
 | 8 | buttons and the `__explorable` console debug API |
 
 (Parts 1 and 9 — the Simulator's demo runtime and canned fixtures — were
-removed when AI went direct; standalone mode now generates for real.)
+removed; standalone mode now generates through the app server.)

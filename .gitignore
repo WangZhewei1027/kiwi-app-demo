@@ -4,3 +4,11 @@ explorable-app/.env
 explorable-app/.env.*
 !explorable-app/.env.example
 .DS_Store
+
+# Vercel runtime secrets and generated output.
+.env
+.env.*
+!.env.example
+.vercel/
+node_modules/
+public/

@@ -16,8 +16,8 @@
     detail, generated source — goes to the DevTools console instead
     (window.__explorable exposes the debug switches; see PART 5).
 
-    HOW IT CALLS THE MODEL: directly. Every AI call is a plain fetch to an
-    OpenAI-compatible endpoint (LiteLLM — AI_BASE_URL / AI_MODEL in PART 6).
+    HOW IT CALLS THE MODEL: through the same-origin /api/chat function.
+    Only the server holds the upstream API key and model configuration.
     The Kiwi bridge is still used for EMBEDDING (kiwi:ready / kiwi:context /
     kiwi:updateContext), but no AI traffic rides it any more, so the old
     two-surface split (capped askAI vs uncapped contextualChat) is gone:
@@ -1114,7 +1114,7 @@
 
       kiwi.onStatus((mode) => {
         /* 'sim' now only means "no Kiwi host embeds this page" — generation
-           still works, it never depended on the host once AI went direct. */
+           still works through the app server without a Kiwi host. */
         $("foot_sim").className = "footsim" + (mode === "sim" ? " show" : "");
         console.info(
           "%cExplorables%c mode: " + mode,
@@ -1128,20 +1128,13 @@
       });
 
       /* =====================================================================
-         PART 6 — the direct AI client
+         PART 6 — the server-backed AI client
          =====================================================================
-         One route. Every call is a plain fetch to an OpenAI-compatible
-         /chat/completions endpoint (LiteLLM), streamed as SSE so the progress
-         line can show characters arriving. No app token, no scopes, no route
-         selection — the old askAI / contextualChat split is gone.
+         All three calls use the same-origin proxy. The server owns upstream
+         credentials and model selection; the browser sends only messages
+         and consumes the streamed SSE response. */
 
-         NOTE: the API key ships inside this client-side file, readable by
-         anyone who opens the page source. Acceptable for this demo's shared
-         endpoint; do not reuse the pattern with a key you care about. */
-
-      const AI_BASE_URL = "https://litellm.tunnel.kiwiai.org/v1";
-      const AI_API_KEY = "";
-      const AI_MODEL = "Qwen3.8-27B-fast"; // -fast = non-reasoning: tokens go to output, not thinking
+      const AI_CHAT_URL = "/api/chat";
       const AI_TIMEOUT_MS = 120000;
 
       /* One prompt in, the full reply text out. opts: { system, onChunk }. */
@@ -1156,28 +1149,27 @@
         log(
           "out",
           "llm:request",
-          AI_MODEL + " · " + userPrompt.length + " prompt chars",
+          userPrompt.length + " prompt chars",
         );
         try {
-          const res = await fetch(AI_BASE_URL + "/chat/completions", {
+          const res = await fetch(AI_CHAT_URL, {
             method: "POST",
             headers: {
-              Authorization: "Bearer " + AI_API_KEY,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: AI_MODEL,
               messages: messages,
-              stream: true,
             }),
             signal: controller.signal,
           });
           if (!res.ok) {
-            const body = await res.text().catch(() => "");
+            const body = await res.json().catch(() => null);
             throw new Error(
-              "the model API answered " +
-                res.status +
-                (body ? " — " + body.slice(0, 200) : ""),
+              res.status === 404 || res.status === 405
+                ? "AI generation is unavailable here. Open the app's Vercel URL."
+                : (body && typeof body.error === "string" && body.error) ||
+                    "The generation service could not complete the request (" +
+                      res.status + ").",
             );
           }
 
@@ -1233,14 +1225,10 @@
 
       function paintEngine() {
         $("foot").className = "foot good";
-        $("foot_txt").textContent = "AI: " + AI_MODEL + " · direct";
+        $("foot_txt").textContent = "AI-powered explanations";
         console.info(
-          "AI route: direct — " +
-            AI_BASE_URL +
-            " · " +
-            AI_MODEL +
-            ". The Kiwi bridge " +
-            "carries no AI traffic; the page, head and how-to calls all hit the API from this file.",
+          "AI route: same-origin proxy " + AI_CHAT_URL +
+          ". Model credentials stay on the server; the Kiwi bridge carries no AI traffic.",
         );
       }
 
@@ -1725,9 +1713,7 @@
             (pre
               ? "premade (" + pre.url + ") + LLM prose ×2"
               : Math.round(current.html.length / 1024) +
-                " KB · via direct API (" +
-                AI_MODEL +
-                ") ×3") +
+                " KB · via app server ×3") +
             " — source: __explorable.source()",
         );
       }

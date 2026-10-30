@@ -10,8 +10,9 @@ A Kiwi App is a separately hosted web app that Kiwi embeds in an iframe and
 talks to over `window.postMessage`. This one uses the bridge for the
 **embedding protocol only** (`kiwi:ready` / `kiwi:context` /
 `kiwi:updateContext`). **AI calls do not go through the bridge**: they are
-direct `fetch` calls to an OpenAI-compatible LiteLLM endpoint (`AI_BASE_URL` /
-`AI_API_KEY` / `AI_MODEL` in PART 6 of `index.html`), streamed as SSE.
+same-origin `fetch` calls to `/api/chat`, streamed as SSE. `api/chat.mjs` calls
+an OpenAI-compatible endpoint using server-only `AI_BASE_URL`, `AI_API_KEY` and
+`AI_MODEL` environment variables.
 
 ## Source Of Truth
 
@@ -33,12 +34,18 @@ backend or frontend change, say so instead of editing them.
 
 ## Build And Run
 
-Static, no build step, no dependencies.
+Node.js 22, no runtime dependencies. Run from the repository root:
 
 ```bash
-cd explorable-app
-python3 -m http.server 8000
+cp .env.example .env.local  # fill server configuration locally
+npx vercel dev --listen 8000
+# open http://localhost:8000/explorable-app/
+npm test
+npm run build
 ```
+
+For Vercel deployment, credentials, and public-demo limits, read
+`explorable-app/README.md` before changing the proxy or deployment configuration.
 
 Standalone (no Kiwi host) the app is fully functional: the SDK sits in `sim`
 mode for the bridge, but generation is real — the AI calls never touch the
@@ -78,8 +85,9 @@ host. There are no offline fixtures any more.
 - Generated pages run in `<iframe sandbox="allow-scripts">` with no
   `allow-same-origin`. Keep both properties, and keep `PAGE_RULES` honest about
   what that sandbox forbids (storage APIs throw, no fetch, no dialogs).
-- The API key is client-visible by design (demo endpoint). Never swap in a
-  paid or personal key; change `AI_BASE_URL`/`AI_API_KEY` together.
+- Credentials and model configuration belong in server environment variables.
+  The browser sends only messages to `/api/chat`. Keep the static build's
+  explicit file allowlist; environment files and server source stay private.
 
 ## Registration Rules (embedding only)
 
@@ -98,7 +106,7 @@ admin whitelist -> app register -> enable in class
 
 Before finishing a change:
 
-- Standalone (`python3 -m http.server`, no host): a catalog concept
+- Standalone (`vercel dev`, no Kiwi host): a catalog concept
   (`Binary Search Tree`, `跳表`) mounts its csvistool page instantly with the
   site chrome cropped away, and an unlisted concept (`Sliding Window`) still
   generates against the real API. Every "Curated" chip must route to its own
@@ -119,5 +127,5 @@ Before finishing a change:
 - Keep this file short. Embedding-protocol detail belongs in the developer
   guide; pipeline detail belongs in `explorable-app/README.md`.
 - Prefer extending `explorable-app/` over adding a second app.
-- Do not commit secrets or `.env` files. (The demo AI key in `index.html` is
-  knowingly public; treat any other credential as secret.)
+- Keep secrets in ignored environment files or Vercel settings. Never commit
+  credentials, include them in static assets, or print them in test output.

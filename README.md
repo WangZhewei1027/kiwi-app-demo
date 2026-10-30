@@ -1,70 +1,62 @@
 # kiwi-app-demo
 
-An external **Kiwi App** that turns a concept into something a learner can click.
+**Explorable Explanations** is an external Kiwi App that turns a concept into
+an interactive page. It loads a curated visualization when one is available;
+otherwise it generates a page with AI and renders it in a sandboxed iframe.
 
-```
-kiwi-app-demo/
-├── README.md            ← you are here
-├── AGENTS.md            ← working rules for agents editing this repo
-└── explorable-app/      ← the app (self-contained, no build step)
-    ├── index.html
-    ├── README.md        ← the limits, the pipeline, how to register
-    ├── register.sh
-    └── kiwi-app-sdk/
-```
+## Run locally
 
-## Quick start
+Use Node.js 22 and run from the repository root:
 
 ```bash
-cd explorable-app
-python3 -m http.server 8000
-open http://localhost:8000/
+cp .env.example .env.local
+# Fill AI_BASE_URL, AI_API_KEY and AI_MODEL in .env.local.
+npx vercel dev --listen 8000
 ```
 
-Generation works immediately — the app calls the model API directly, so no
-Kiwi backend is needed. Type `Bubble Sort`, `Stack` or `Binary Search` and
-click through the result. Register it (see `explorable-app/README.md`) only if
-you want it embedded as a tab inside a real Kiwi class.
+Open `http://localhost:8000/explorable-app/`. No Kiwi backend is needed for
+standalone use. The root `.env.local` holds model configuration; the separate
+`explorable-app/.env` is used only by the Kiwi registration script.
 
-## What it is
+## Deploy to Vercel
 
-Type a concept; the app asks an AI model for a small interactive explanation and
-renders it in a sandboxed iframe. Bars you step through, a stack you push onto —
-the kind of page where the interaction *is* the explanation.
+Import this repository with the **Other** framework preset and repository root
+as the root directory. Set `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` as server
+environment variables in Vercel, then deploy. `vercel.json` configures the build
+and the streaming `/api/chat` function. Never expose the key through a public
+environment-variable prefix or frontend configuration.
 
-It follows the framing in *Evaluating Interactivity: Toward Automated Assessment
-of AI-Generated Explorable Explanations* (Wang, Wang & Wen): what makes an
-explorable explanation good is its **interaction model** — the states a learner
-can reach and the actions that move between them — not its markup. The paper
-extracts that model *after* generation, as an FSM, in order to score it. This app
-puts it first and makes it the build artifact: the model declares the state and
-the controls, then writes the actions that move between them. The interaction
-model is shown in the UI before the page exists.
+The frontend calls `/api/chat`; only the function adds the upstream Bearer key.
+The Kiwi bridge carries embedding and context updates only. Each generated run
+still uses three calls: page and title/concept in parallel, then instructions
+after the controls exist. Curated pages replace only the page-generation call.
 
-## How it talks to the model
+GitHub Pages supports only the static page and curated visualizations. AI
+generation requires the Vercel deployment. For Kiwi embedding, register the
+Vercel app URL through administrator whitelist → registration → class enablement.
 
-AI calls go **directly** to an OpenAI-compatible LiteLLM endpoint
-(`AI_BASE_URL` / `AI_MODEL` in `index.html` PART 6), streamed as SSE. The Kiwi
-bridge carries only the embedding protocol (`kiwi:ready` / `kiwi:context` /
-`kiwi:updateContext`) — the old two-surface split between Kiwi's capped
-`kiwi:askAI` tutor agent and the uncapped `contextualChat` op is gone, along
-with the app token, the scope checks, and the prompt approval flow they
-required.
+See [the app documentation](explorable-app/README.md) for setup, public-demo
+limits, the generation pipeline and embedding instructions. The source
+repository's previously exposed key must be rotated; rewriting Git history
+cannot revoke downloaded copies.
 
-Each run is three calls: the complete page (raw HTML, streamed, with the app's
-own system prompt), plus a title/concept call fired in parallel and a how-to
-call once the controls exist. Output is uncapped; the app enforces its own
-120-second abort and a character budget in the prompt for latency.
+## Verify
 
-The full pipeline, and what happens when an answer is broken anyway, is in
-`explorable-app/README.md`.
+```bash
+npm test
+npm run build
+```
 
-## Relationship to the reference workspace
+Tests use mocked model responses. The static build copies only the HTML pages,
+SDK and curated catalog into `public/`; environment files and backend code are
+not static assets.
 
-The structure, the SDK bundle and `register.sh` are lifted from
-`kiwi/kiwi-app-developer-guide-example/`; that workspace and
-`KIWI_APP_DEVELOPER_GUIDE.md` remain the source of truth for the protocol. Where
-this README cites line-level behaviour it is quoting `kiwi/src/**` as read on the
-`kiwi-apps-development` branch — re-check it if the backend moves.
+## Layout
 
-Nothing outside this folder is modified by this project.
+```text
+api/chat.mjs            # Vercel streaming proxy, server-only environment
+explorable-app/         # frontend, bundled Kiwi SDK, curated catalog
+scripts/build.mjs      # public asset allowlist
+tests/                 # proxy regression tests
+vercel.json            # deployment settings
+```
